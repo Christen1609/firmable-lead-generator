@@ -1,0 +1,135 @@
+/* React Bits — GlassIcons.
+   Ported as-is, with two changes for this codebase:
+   - sizing driven by a --glass-size var so a tile can be used inline in a card
+   - the grid is opt-in, so a single tile can stand on its own */
+
+.icon-btns {
+  display: grid;
+  grid-gap: 5em;
+  grid-template-columns: repeat(2, 1fr);
+  margin: auto;
+  padding: 3em 0;
+  overflow: visible;
+}
+
+.icon-btn {
+  background-color: transparent;
+  outline: none;
+  position: relative;
+  width: var(--glass-size, 4.5em);
+  height: var(--glass-size, 4.5em);
+  perspective: 24em;
+  transform-style: preserve-3d;
+  -webkit-tap-highlight-color: transparent;
+  border: none;
+  flex: none;
+}
+
+.icon-btns .icon-btn {
+  cursor: pointer;
+}
+
+.icon-btn__back,
+.icon-btn__front,
+.icon-btn__label {
+  transition:
+    opacity 0.3s cubic-bezier(0.83, 0, 0.17, 1),
+    transform 0.3s cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+.icon-btn__back,
+.icon-btn__front {
+  border-radius: var(--glass-radius, 1.25em);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.icon-btn__back {
+  box-shadow: 0.5em -0.5em 0.75em hsla(223, 10%, 10%, 0.15);
+  display: block;
+  transform: rotate(15deg);
+  transform-origin: 100% 100%;
+  will-change: transform;
+}
+
+.icon-btn__front {
+  background-color: hsla(0, 0%, 100%, 0.15);
+  box-shadow: 0 0 0 0.1em hsla(0, 0%, 100%, 0.3) inset;
+  display: flex;
+  transform-origin: 80% 50%;
+  will-change: transform;
+}
+
+/* Gated behind @supports so Lightning CSS keeps the standard property — see
+   the note on .bw-glass in globals.css. Left bare, the blur silently vanishes
+   in Chrome and the tile renders as flat translucent white. */
+@supports (backdrop-filter: blur(1px)) {
+  .icon-btn__front {
+    backdrop-filter: blur(0.75em);
+  }
+}
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .icon-btn__front {
+    -webkit-backdrop-filter: blur(0.75em);
+  }
+}
+
+.icon-btn__icon {
+  margin: auto;
+  width: 1.5em;
+  height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--glass-fg, #fff);
+}
+
+.icon-btn__label {
+  font-size: 1em;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 2;
+  opacity: 0;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  transform: translateY(0);
+}
+
+/* The lift also fires when an ancestor card is hovered, so a tile sitting
+   inside a finding card animates with the card rather than only on its own. */
+.icon-btn:focus-visible .icon-btn__back,
+.icon-btn:hover .icon-btn__back,
+.bw-glass-hover:hover .icon-btn__back {
+  transform: rotate(25deg) translate3d(-0.5em, -0.5em, 0.5em);
+}
+
+.icon-btn:focus-visible .icon-btn__front,
+.icon-btn:hover .icon-btn__front,
+.bw-glass-hover:hover .icon-btn__front {
+  transform: translate3d(0, 0, 2em);
+}
+
+.icon-btn:focus-visible .icon-btn__label,
+.icon-btn:hover .icon-btn__label {
+  opacity: 1;
+  transform: translateY(20%);
+}
+
+@media (min-width: 768px) {
+  .icon-btns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn__back,
+  .icon-btn__front,
+  .icon-btn__label {
+    transition: none;
+  }
+}
