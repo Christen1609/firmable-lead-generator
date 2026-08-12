@@ -1,6 +1,6 @@
 # Lead Generator — Exposure Intelligence
 
-Turns 5.7 GB of raw internet scan data into a ranked list of companies with real,
+Turns 5.6 GB of raw internet scan data into a ranked list of companies with real,
 externally visible security exposures, and gives a salesperson everything needed
 to open a conversation: what is wrong, what it is likely to cost, who to contact,
 and a drafted email.
@@ -12,7 +12,7 @@ and a drafted email.
 ## The problem
 
 A cybersecurity company's sales team has a scan of the public internet and no way
-to act on it. The raw feed is a 5.7 GB compressed JSON file of individual hosts —
+to act on it. The raw feed is a 5.6 GB compressed JSON file of individual hosts —
 IP addresses, open ports, TLS certificates, software banners, CVE lists. None of
 that is a sales prospect. A salesperson cannot call an IP address.
 
@@ -38,7 +38,7 @@ adds newly discovered companies to the same tables the batch data lives in.
 ## Architecture
 
 ```
-test_scans.json.zst  (5.7 GB, ~6.1M hosts)
+test_scans.json.zst  (5.6 GB, 6,124,461 hosts)
         │
         │  DuckDB streaming scan — never loaded into memory
         ▼
@@ -196,7 +196,7 @@ psql < web/supabase/company_vulns.sql   # or paste into the Supabase SQL editor
 
 ### Rebuilding the batch data
 
-The scan file and its derived parquet are excluded from this repo — 5.7 GB and
+The scan file and its derived parquet are excluded from this repo — 5.6 GB and
 712 MB respectively, both over GitHub's limits. To regenerate:
 
 ```bash

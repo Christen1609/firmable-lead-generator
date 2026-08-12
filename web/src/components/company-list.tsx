@@ -230,7 +230,10 @@ export function CompanyList({
             textWrap: "pretty",
             color: "color-mix(in srgb, var(--color-text) 66%, transparent)",
           }}>
-            {totalCount.toLocaleString()} companies resolved from 6.1M scanned servers, ranked by what is being attacked right now. Critical means a flaw on their systems is confirmed exploited in the wild.
+            {/* 6.1M is the raw record count of test_scans.json.zst, verified by
+                counting it: 6,124,461 host records. "hosts" not "servers" —
+                each record is one scanned IP/port, not one machine. */}
+            {totalCount.toLocaleString()} companies resolved from 6.1M scanned hosts, ranked by what is being attacked right now. Critical means a flaw on their systems is confirmed exploited in the wild.
           </p>
         </div>
 
