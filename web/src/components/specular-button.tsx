@@ -128,6 +128,10 @@ export function SpecularButton({
   // the button still renders and works — it just loses the specular rim.
   const [fxFailed, setFxFailed] = useState(false);
 
+  // Upstream React Bits pattern: the render loop starts once in an effect with
+  // [] deps and reads live prop values through this ref. Moving this into an
+  // effect would leave the animation one frame stale on every prop change.
+  // eslint-disable-next-line react-hooks/refs
   propsRef.current = {
     radius, lineColor, baseColor, intensity, shineSize, shineFade,
     thickness, speed, followMouse, proximity, autoAnimate,
@@ -145,6 +149,9 @@ export function SpecularButton({
     try {
       renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: true, dpr });
     } catch {
+      // WebGL context creation can only be attempted at runtime; this is a
+      // one-shot fallback to a plain button, not a render cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFxFailed(true);
       return;
     }

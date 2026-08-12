@@ -595,7 +595,7 @@ export function CompanyDetail({
                   margin: "0 0 22px", fontSize: 14,
                   color: "color-mix(in srgb, var(--color-text) 55%, transparent)",
                 }}>
-                  Writing from this company's findings…
+                  Writing from this company&apos;s findings…
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {[62, 94, 88, 40].map((width, i) => (
@@ -651,7 +651,7 @@ export function CompanyDetail({
                       width: 8, height: 8, borderRadius: 999, background: "var(--color-accent-2-500)",
                       flex: "none", marginTop: 6,
                     }} />
-                    <span>Every figure here was computed in code from this company's own records and passed in. The model phrases them, it never invents a number.</span>
+                    <span>Every figure here was computed in code from this company&apos;s own records and passed in. The model phrases them, it never invents a number.</span>
                   </p>
                 </div>
 

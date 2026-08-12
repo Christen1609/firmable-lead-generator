@@ -26,9 +26,9 @@ being attacked right now, not by raw severity. Filter by exposure tier and
 country, search by name.
 
 **Screen 2 — the company.** Estimated financial exposure, a plain-English verdict,
-and the worst findings written so a non-technical reader can follow them. Two
-actions: draft an outreach email, or pull contact details for whoever owns
-security there.
+and the worst findings written so a non-technical reader can follow them. Three
+actions: draft an outreach email, pull contact details for whoever owns security
+there, or generate a spoken opener for a cold call.
 
 **Find More** runs the whole cleaning pipeline live against the Shodan API and
 adds newly discovered companies to the same tables the batch data lives in.
@@ -116,6 +116,43 @@ Two things this project learned the hard way, both recorded in the code:
 
 The email is three lines by design: what is wrong, what it may cost, and a
 booking link.
+
+---
+
+## Call hook
+
+**Generate a Hook** produces the first ten seconds of a cold call — what the
+salesperson *says*, as opposed to the email they send. Three sentences, revealed
+a character at a time so it reads at roughly speaking pace.
+
+It carries the same grounding as the email, and two claims branch on the data
+rather than being asserted:
+
+- Active exploitation is only stated when the company has a CISA KEV hit.
+  Otherwise the hook gives the measured attack probability instead. This gets
+  said out loud to a real person, so it has to be true.
+- The cost is framed as an industry average with this company's exposure as an
+  estimate. It is explicitly never presented as a past breach at that company,
+  which would be a fabrication the prospect could check.
+
+---
+
+## Rate limiting and input validation
+
+The four API routes are public and each one spends metered quota — a Shodan
+credit, a Gemini call, a Hunter search. They are called from the browser, so a
+shared secret would ship in the client bundle and protect nothing.
+
+Instead: per-IP rate limiting (5/min on the pipeline, 10/min elsewhere) and
+strict input validation. `country` and `product` are matched against patterns
+admitting neither spaces nor colons, because Shodan's query syntax is
+space-separated `filter:value` pairs — unvalidated, a caller sending
+`nginx port:22 country:RU` would rewrite the entire query rather than choose a
+product.
+
+The limiter is in-memory and does not span serverless instances. It stops the
+realistic failure of one client looping an endpoint; a shared store such as
+Upstash is the correct fix under real traffic.
 
 ---
 

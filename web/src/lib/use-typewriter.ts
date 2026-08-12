@@ -17,7 +17,11 @@ export function useTypewriter(text: string, charsPerSecond = 45) {
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Revealing text over time IS this hook's purpose, so the state has to be
+    // driven from an effect. Both synchronous paths here are terminal resets,
+    // not render cascades.
     if (!text) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRevealed("");
       return;
     }

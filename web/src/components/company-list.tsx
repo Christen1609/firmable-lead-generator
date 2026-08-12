@@ -82,7 +82,10 @@ export function CompanyList({
   const [findError, setFindError] = useState<string | null>(null);
   const [foundCompanies, setFoundCompanies] = useState<FoundCompany[]>([]);
 
+  // Resyncs the input when the URL changes from outside the box (back button,
+  // Clear filters). The input is otherwise left alone while the user types.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchInput(currentSearch);
   }, [currentSearch]);
 
@@ -92,6 +95,9 @@ export function CompanyList({
       pushRoute({ search: searchInput });
     }, 400);
     return () => clearTimeout(debounceTimer);
+    // pushRoute is recreated every render; including it would restart the 400ms
+    // debounce on each keystroke and defeat the debounce entirely.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput, currentSearch]);
 
   function pushRoute(overrides: Record<string, string | undefined>) {

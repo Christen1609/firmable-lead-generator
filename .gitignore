@@ -52,3 +52,15 @@ ARCHITECTURE-DECISIONS.md
 # Python bytecode
 __pycache__/
 *.pyc
+
+# The task brief itself — Firmable's document, not ours to publish
+Backend-architecture.md
+
+# Design-tool export kept locally for reference, not part of the deliverable
+waiting-on-form-answers/
+
+# Local agent definitions
+.claude/
+
+# Personal planning notes
+Planning_Document.pdf
