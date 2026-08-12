@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_MODEL, restoreCompanyDomain } from "@/lib/gemini";
 import { formatCurrency, formatCurrencyMillions } from "@/lib/constants";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * Placeholder booking link for the demo. Swap for the real scheduling URL
@@ -34,7 +35,18 @@ interface EmailRequestBody {
   vulns: VulnDetail[];
 }
 
+const EMAIL_LIMIT = 10;
+const EMAIL_WINDOW_MS = 60_000;
+
 export async function POST(request: NextRequest) {
+  const limit = rateLimit(`email:${clientIp(request)}`, EMAIL_LIMIT, EMAIL_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: `Too many drafts. Try again in ${limit.retryAfterSeconds}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

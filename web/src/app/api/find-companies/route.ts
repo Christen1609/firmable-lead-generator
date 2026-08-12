@@ -7,13 +7,37 @@ import {
 } from "@/lib/pipeline";
 import kevData from "@/data/kev.json";
 import { sortCompaniesByTier } from "@/lib/constants";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 interface FindCompaniesRequestBody {
   country?: string;
   product?: string;
 }
 
+/**
+ * Shodan's query language is space-separated `filter:value` pairs, and both of
+ * these values are interpolated straight into that string in pipeline.ts. Left
+ * unvalidated, a caller sending `nginx port:22 country:RU` does not just choose
+ * a product — they rewrite the entire query, including filters this app never
+ * intended to expose. Colons and spaces are the injection vector, so neither
+ * pattern admits them.
+ */
+const COUNTRY_PATTERN = /^[A-Za-z]{2}$/;
+const PRODUCT_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
+
+/** One live run costs a Shodan credit and a Gemini call, so keep it tight. */
+const FIND_LIMIT = 5;
+const FIND_WINDOW_MS = 60_000;
+
 export async function POST(request: NextRequest) {
+  const limit = rateLimit(`find:${clientIp(request)}`, FIND_LIMIT, FIND_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: `Too many pipeline runs. Try again in ${limit.retryAfterSeconds}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const shodanApiKey = process.env.SHODAN_API_KEY;
   if (!shodanApiKey) {
     return NextResponse.json(
@@ -39,9 +63,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const country = body.country?.trim();
+  const product = body.product?.trim();
+
+  if (country && !COUNTRY_PATTERN.test(country)) {
+    return NextResponse.json(
+      { error: "Country must be a two-letter code, for example US, DE or NL." },
+      { status: 400 }
+    );
+  }
+  if (product && !PRODUCT_PATTERN.test(product)) {
+    return NextResponse.json(
+      { error: "Product must be a single keyword, for example nginx, Apache or OpenSSH." },
+      { status: 400 }
+    );
+  }
+
   const target: { country?: string; product?: string } = {};
-  if (body.country) target.country = body.country;
-  if (body.product) target.product = body.product;
+  if (country) target.country = country;
+  if (product) target.product = product;
 
   try {
     // Stage 1: Query Shodan API

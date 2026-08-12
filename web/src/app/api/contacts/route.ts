@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rankContacts, type ContactCandidate } from "@/lib/contacts";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * Contact lookup for one company, on demand.
@@ -62,7 +63,19 @@ function toCandidates(emails: HunterEmail[]): ContactCandidate[] {
     }));
 }
 
+/** Hunter's free plan allows 50 searches a month, so this guards a scarce quota. */
+const CONTACTS_LIMIT = 10;
+const CONTACTS_WINDOW_MS = 60_000;
+
 export async function POST(request: NextRequest) {
+  const limit = rateLimit(`contacts:${clientIp(request)}`, CONTACTS_LIMIT, CONTACTS_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: `Too many lookups. Try again in ${limit.retryAfterSeconds}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const apiKey = process.env.HUNTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
