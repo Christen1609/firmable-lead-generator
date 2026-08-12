@@ -69,7 +69,6 @@ export default async function Home({
   return (
     <CompanyList
       companies={sortedCompanies}
-      totalCount={count ?? 0}
       currentPage={currentPage}
       totalPages={totalPages}
       ibmBreachCost={ibmBreachCost}

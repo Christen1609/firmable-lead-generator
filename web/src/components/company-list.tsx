@@ -16,7 +16,6 @@ import { Radar, X, Loader2, ChevronDown } from "lucide-react";
 
 interface CompanyListProps {
   companies: Company[];
-  totalCount: number;
   currentPage: number;
   totalPages: number;
   ibmBreachCost: number;
@@ -63,7 +62,6 @@ function buildPageRange(current: number, total: number): (number | "…")[] {
 
 export function CompanyList({
   companies,
-  totalCount,
   currentPage,
   totalPages,
   ibmBreachCost,
@@ -230,10 +228,8 @@ export function CompanyList({
             textWrap: "pretty",
             color: "color-mix(in srgb, var(--color-text) 66%, transparent)",
           }}>
-            {/* 6.1M is the raw record count of test_scans.json.zst, verified by
-                counting it: 6,124,461 host records. "hosts" not "servers" —
-                each record is one scanned IP/port, not one machine. */}
-            {totalCount.toLocaleString()} companies resolved from 6.1M scanned hosts, ranked by what is being attacked right now. Critical means a flaw on their systems is confirmed exploited in the wild.
+            Prospects built from public internet scan data and ranked by live
+            exploitation signals. Critical means confirmed active exploitation.
           </p>
         </div>
 
