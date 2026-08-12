@@ -161,6 +161,9 @@ export async function POST(request: NextRequest) {
       vulnsUpserted,
       recordsProcessed: pipelineResult.totalRecordsProcessed,
       domainsDropped: pipelineResult.domainsDropped,
+      // Surfaced rather than logged: if the classifier stops answering, that is
+      // a silent quality regression and the only way to notice is to report it.
+      resolution: pipelineResult.resolution,
       // The names themselves, worst first — without these a run just reports a
       // count and the user has no way to reach what it found.
       companies: sortCompaniesByTier(pipelineResult.companies).map((company) => ({
