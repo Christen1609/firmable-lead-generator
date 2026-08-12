@@ -48,3 +48,7 @@ FrontendDesign.zip
 
 # Local architecture working notes — reasoning and measurements, not shipped docs
 ARCHITECTURE-DECISIONS.md
+
+# Python bytecode
+__pycache__/
+*.pyc
