@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   buildKevMap,
   queryShodanApi,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Stage 6: Upsert into Supabase
-    const { error: companyUpsertError } = await supabase
+    const { error: companyUpsertError } = await supabaseAdmin
       .from("Companies")
       .upsert(pipelineResult.companies, { onConflict: "company" });
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     let vulnsUpserted = 0;
     if (pipelineResult.vulns.length > 0) {
-      const { error: vulnUpsertError } = await supabase
+      const { error: vulnUpsertError } = await supabaseAdmin
         .from("Company_Vulns")
         .upsert(pipelineResult.vulns, { onConflict: "company,cve_id" });
 

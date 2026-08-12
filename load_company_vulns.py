@@ -15,7 +15,9 @@ there is one source of truth for every company regardless of origin.
 Prerequisites
 -------------
 1. web/supabase/company_vulns.sql has been run (the table must exist).
-2. web/.env.local holds NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_KEY.
+2. web/.env.local holds NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY.
+   This writes, so it needs the service key: the publishable key has SELECT
+   only and every insert would fail the row-level security policy.
 
 Safe to re-run: every write is an upsert keyed on (company, cve_id).
 
@@ -130,9 +132,9 @@ def main():
 
     env = read_env(ENV_PATH)
     url = env.get("NEXT_PUBLIC_SUPABASE_URL")
-    key = env.get("NEXT_PUBLIC_SUPABASE_KEY")
+    key = env.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
-        raise SystemExit(f"Supabase URL/key missing from {ENV_PATH}")
+        raise SystemExit(f"NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_KEY missing from {ENV_PATH}")
 
     print(f"Reading {GZ_PATH}...")
     with gzip.open(GZ_PATH, "rb") as handle:

@@ -172,15 +172,20 @@ npm run dev
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project REST URL |
-| `NEXT_PUBLIC_SUPABASE_KEY` | Supabase API key |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key — read-only, constrained by RLS |
+| `SUPABASE_SERVICE_KEY` | Service-role key, server-only. Used by the pipeline route and the batch loader |
 | `GEMINI_API_KEY` | Email drafting and domain classification |
 | `SHODAN_API_KEY` | Live Find More pipeline |
 | `HUNTER_API_KEY` | Contact lookup |
 
-> `NEXT_PUBLIC_SUPABASE_KEY` currently holds a service-role key. It is only
-> imported by server components and API routes, so it is not bundled to the
-> browser — but a single client-side import would expose it. Prefer an anon key
-> with RLS, or rename it without the `NEXT_PUBLIC_` prefix.
+Reads and writes use separate clients. `src/lib/supabase.ts` holds the
+publishable key and is safe to reach the browser; Row Level Security grants it
+`SELECT` on the three tables and no write access at all.
+`src/lib/supabase-admin.ts` holds the service-role key, imports `server-only`
+so a client-side import fails the build rather than leaking the key, and is used
+only by the pipeline route.
+
+Apply the policies with `web/supabase/rls_policies.sql`.
 
 ### Database
 

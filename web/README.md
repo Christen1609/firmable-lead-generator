@@ -31,7 +31,8 @@ npm run build
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project REST URL |
-| `NEXT_PUBLIC_SUPABASE_KEY` | Supabase API key (anon or service role) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key, read-only under RLS |
+| `SUPABASE_SERVICE_KEY` | Service-role key, server-only |
 | `GEMINI_API_KEY` | Google Gemini API key for email generation |
 
 ## Features
