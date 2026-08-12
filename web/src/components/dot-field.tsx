@@ -26,9 +26,9 @@ function DotFieldInner({
   glowColor = "rgba(198, 113, 57, 0.06)",
 }: DotFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const dotsRef = useRef<
-    { ax: number; ay: number; sx: number; sy: number; vx: number; vy: number; x: number; y: number }[]
-  >([]);
+  // ax/ay is the dot's anchor in the grid; sx/sy is where it has settled after
+  // the cursor bulge. The wave offset is applied at draw time and not stored.
+  const dotsRef = useRef<{ ax: number; ay: number; sx: number; sy: number }[]>([]);
   const mouseRef = useRef({ x: -9999, y: -9999, prevX: -9999, prevY: -9999, speed: 0 });
   const rafRef = useRef<number | null>(null);
   const sizeRef = useRef({ w: 0, h: 0, offsetX: 0, offsetY: 0 });
@@ -86,7 +86,7 @@ function DotFieldInner({
         for (let col = 0; col < cols; col++) {
           const ax = padX + col * step + step / 2;
           const ay = padY + row * step + step / 2;
-          dots.push({ ax, ay, sx: ax, sy: ay, vx: 0, vy: 0, x: ax, y: ay });
+          dots.push({ ax, ay, sx: ax, sy: ay });
         }
       }
       dotsRef.current = dots;

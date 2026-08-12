@@ -107,11 +107,9 @@ function extractRootDomain(record: ShodanRecord): string | null {
     if (rootDomain) return rootDomain;
   }
 
-  if (record.hostnames && record.hostnames.length > 0) {
-    for (const hostname of record.hostnames) {
-      const rootDomain = getDomain(hostname);
-      if (rootDomain) return rootDomain;
-    }
+  for (const hostname of record.hostnames ?? []) {
+    const rootDomain = getDomain(hostname);
+    if (rootDomain) return rootDomain;
   }
 
   return null;
@@ -137,10 +135,11 @@ function matchesInfrastructureKeywords(domain: string): boolean {
 }
 
 function isLikelyInfrastructure(domain: string): boolean {
-  if (isIpAddress(domain)) return true;
-  if (isSystemJunk(domain)) return true;
-  if (matchesInfrastructureKeywords(domain)) return true;
-  return false;
+  return (
+    isIpAddress(domain) ||
+    isSystemJunk(domain) ||
+    matchesInfrastructureKeywords(domain)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +191,7 @@ ${domainList}`;
 // ---------------------------------------------------------------------------
 
 function joinKev(
-  cveIds: string[],
+  cveIds: Iterable<string>,
   kevMap: Map<string, KevEntry>
 ): { inKev: boolean; ransomware: boolean } {
   let inKev = false;
@@ -335,8 +334,10 @@ export async function runPipeline(
   for (const [domain, domainRecords] of domainToRecords) {
     let maxCvss = 0;
     let maxEpss = 0;
-    let allCveIds: string[] = [];
     let country: string | null = null;
+    // A set, not an array: only the distinct CVEs are ever needed, both for the
+    // count and for the KEV join.
+    const distinctCveIds = new Set<string>();
 
     for (const record of domainRecords) {
       const recordCountry = record.location?.country_name ?? record.country_name;
@@ -345,10 +346,10 @@ export async function runPipeline(
       }
 
       const recordVulns = record.vulns ?? {};
-      const cveIds = Object.keys(recordVulns);
-      allCveIds = allCveIds.concat(cveIds);
 
-      for (const cveId of cveIds) {
+      for (const cveId of Object.keys(recordVulns)) {
+        distinctCveIds.add(cveId);
+
         const vulnData = recordVulns[cveId];
         const cvss = vulnData.cvss ?? 0;
         const epss = vulnData.epss ?? 0;
@@ -370,9 +371,8 @@ export async function runPipeline(
       }
     }
 
-    if (allCveIds.length === 0) continue;
+    if (distinctCveIds.size === 0) continue;
 
-    const distinctCveIds = [...new Set(allCveIds)];
     const { inKev, ransomware } = joinKev(distinctCveIds, kevMap);
     const tier = scoreTier(maxEpss, inKev);
 
@@ -381,7 +381,7 @@ export async function runPipeline(
       country,
       max_cvss: maxCvss,
       max_epss: maxEpss,
-      cve_count: distinctCveIds.length,
+      cve_count: distinctCveIds.size,
       in_kev: inKev,
       ransomware,
       tier,

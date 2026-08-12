@@ -356,7 +356,7 @@ export function CompanyDetail({
               Worst severity
             </p>
             <p style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 600 }}>
-              {company.max_cvss !== null ? company.max_cvss.toFixed(1) + " / 10" : "—"}
+              {formatCvss(company.max_cvss)}
             </p>
           </div>
         </div>
@@ -678,73 +678,70 @@ export function CompanyDetail({
             )}
 
             {!contactsLoading && contacts.length > 0 && (
-              <>
-                <div style={{ padding: "0 34px", display: "flex", flexDirection: "column", gap: 12 }}>
-                  {contacts.map((contact) => (
-                    <div
-                      key={contact.email}
-                      style={{
-                        border: "1px solid var(--color-divider)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "16px 18px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "var(--font-heading)", fontSize: 18 }}>
-                          {contact.name ?? contact.email}
-                        </span>
+              <div style={{ padding: "0 34px", display: "flex", flexDirection: "column", gap: 12 }}>
+                {contacts.map((contact) => (
+                  <div
+                    key={contact.email}
+                    style={{
+                      border: "1px solid var(--color-divider)",
+                      borderRadius: "var(--radius-md)",
+                      padding: "16px 18px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "var(--font-heading)", fontSize: 18 }}>
+                        {contact.name ?? contact.email}
+                      </span>
+                      <span className="bw-tag" style={{
+                        borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600,
+                        background: contact.rank === "security" ? "var(--color-accent)" : "transparent",
+                        color: contact.rank === "security" ? "var(--color-bg)" : "var(--color-neutral-700)",
+                        border: contact.rank === "security" ? "none" : "1px solid var(--color-divider)",
+                      }}>
+                        {RANK_LABELS[contact.rank]}
+                      </span>
+                      {contact.downgraded && (
                         <span className="bw-tag" style={{
-                          borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600,
-                          background: contact.rank === "security" ? "var(--color-accent)" : "transparent",
-                          color: contact.rank === "security" ? "var(--color-bg)" : "var(--color-neutral-700)",
-                          border: contact.rank === "security" ? "none" : "1px solid var(--color-divider)",
+                          borderRadius: 999, padding: "3px 11px", fontSize: 11, fontWeight: 600,
+                          background: "transparent", color: "var(--color-neutral-600)",
+                          border: "1px dashed var(--color-divider)",
                         }}>
-                          {RANK_LABELS[contact.rank]}
+                          Demoted
                         </span>
-                        {contact.downgraded && (
-                          <span className="bw-tag" style={{
-                            borderRadius: 999, padding: "3px 11px", fontSize: 11, fontWeight: 600,
-                            background: "transparent", color: "var(--color-neutral-600)",
-                            border: "1px dashed var(--color-divider)",
-                          }}>
-                            Demoted
-                          </span>
-                        )}
-                      </div>
-
-                      {contact.position && (
-                        <p style={{ margin: "6px 0 0", fontSize: 14, color: "color-mix(in srgb, var(--color-text) 70%, transparent)" }}>
-                          {contact.position}
-                        </p>
                       )}
-
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 12, alignItems: "center" }}>
-                        <a
-                          href={`mailto:${contact.email}`}
-                          style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", textDecoration: "underline", textUnderlineOffset: 3 }}
-                        >
-                          {contact.email}
-                        </a>
-                        {contact.linkedin && (
-                          <a
-                            href={contact.linkedin}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: 12, color: "color-mix(in srgb, var(--color-text) 52%, transparent)" }}
-                          >
-                            LinkedIn
-                          </a>
-                        )}
-                      </div>
-
-                      <p style={{ margin: "10px 0 0", fontSize: 12, color: "color-mix(in srgb, var(--color-text) 48%, transparent)" }}>
-                        {contact.rankReason}
-                      </p>
                     </div>
-                  ))}
-                </div>
 
-              </>
+                    {contact.position && (
+                      <p style={{ margin: "6px 0 0", fontSize: 14, color: "color-mix(in srgb, var(--color-text) 70%, transparent)" }}>
+                        {contact.position}
+                      </p>
+                    )}
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 12, alignItems: "center" }}>
+                      <a
+                        href={`mailto:${contact.email}`}
+                        style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", textDecoration: "underline", textUnderlineOffset: 3 }}
+                      >
+                        {contact.email}
+                      </a>
+                      {contact.linkedin && (
+                        <a
+                          href={contact.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: "color-mix(in srgb, var(--color-text) 52%, transparent)" }}
+                        >
+                          LinkedIn
+                        </a>
+                      )}
+                    </div>
+
+                    <p style={{ margin: "10px 0 0", fontSize: 12, color: "color-mix(in srgb, var(--color-text) 48%, transparent)" }}>
+                      {contact.rankReason}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
 
             <div style={{

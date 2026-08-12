@@ -36,12 +36,10 @@ for company, vulns_text in rows:
 
     bucket = company_vulns.setdefault(company, {})
 
+    # A company shows up once per scanned server, so the same CVE arrives many
+    # times. Keep whichever copy carries the highest EPSS.
     for cve_id, vdata in vulns.items():
-        if cve_id in bucket:
-            existing = bucket[cve_id]
-            if (vdata.get("epss") or 0) > (existing.get("epss") or 0):
-                bucket[cve_id] = vdata
-        else:
+        if cve_id not in bucket or (vdata.get("epss") or 0) > (bucket[cve_id].get("epss") or 0):
             bucket[cve_id] = vdata
 
 output = {}

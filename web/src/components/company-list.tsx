@@ -7,7 +7,6 @@ import {
   TIER_FILTER_OPTIONS,
   computeEstimatedExposure,
   formatCurrencyShort,
-  formatEpss,
   type TierBadgeStyle,
 } from "@/lib/constants";
 import type { Company } from "@/lib/types";
@@ -44,6 +43,22 @@ function buildSignals(company: Company): string {
   if (company.in_kev) signals.push("Exploited in the wild");
   if (company.ransomware) signals.push("Ransomware-linked");
   return signals.length ? signals.join(" · ") : "None flagged";
+}
+
+/** Page numbers to show, with "…" standing in for the skipped stretches. */
+function buildPageRange(current: number, total: number): (number | "…")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let page = start; page <= end; page++) pages.push(page);
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
 }
 
 export function CompanyList({
@@ -114,23 +129,9 @@ export function CompanyList({
     pushRoute({ page: String(newPage) });
   }
 
-  const pageRange: (number | "…")[] = (() => {
-    const pages: (number | "…")[] = [];
-    const total = totalPages;
-    const current = currentPage;
-    if (total <= 7) {
-      for (let i = 1; i <= total; i++) pages.push(i);
-      return pages;
-    }
-    pages.push(1);
-    if (current > 3) pages.push("…");
-    const start = Math.max(2, current - 1);
-    const end = Math.min(total - 1, current + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (current < total - 2) pages.push("…");
-    pages.push(total);
-    return pages;
-  })();
+  const pageRange = buildPageRange(currentPage, totalPages);
+  /** "all" is just the first option, so the dropdown renders from one template. */
+  const countryOptions = ["all", ...countries];
 
   async function handleFindCompanies() {
     if (!findCountry && !findProduct) return;
@@ -347,43 +348,7 @@ export function CompanyList({
                     gap: 4,
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleCountryChange("all");
-                      setCountryDropdownOpen(false);
-                    }}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: "var(--font-body)",
-                      fontSize: 13,
-                      fontWeight: currentCountry === "all" ? 600 : 500,
-                      color: currentCountry === "all" ? "var(--color-bg)" : "var(--color-text)",
-                      background: currentCountry === "all" ? "var(--color-accent)" : "transparent",
-                      border: "1px solid var(--color-divider)",
-                      borderRadius: 999,
-                      padding: "6px 16px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "background 0.12s, color 0.12s",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (currentCountry !== "all") {
-                        e.currentTarget.style.background =
-                          "color-mix(in srgb, var(--color-text) 7%, transparent)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (currentCountry !== "all") {
-                        e.currentTarget.style.background = "transparent";
-                      }
-                    }}
-                  >
-                    All countries
-                  </button>
-                  {countries.map((country) => {
+                  {countryOptions.map((country) => {
                     const isActive = currentCountry === country;
                     return (
                       <button
@@ -421,7 +386,7 @@ export function CompanyList({
                           }
                         }}
                       >
-                        {country}
+                        {country === "all" ? "All countries" : country}
                       </button>
                     );
                   })}

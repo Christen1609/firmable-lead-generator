@@ -18,13 +18,6 @@ export const TIER_BADGE_STYLES: Record<string, TierBadgeStyle> = {
   Low: { background: "#dcefdd", color: "#1f6530", border: "1px solid #bde0c3" },
 };
 
-export const TIER_DESCRIPTIONS: Record<string, string> = {
-  Critical: "Actively exploited — at least one CVE on the CISA KEV list",
-  High: "High attack probability — EPSS of 0.5 or above",
-  Medium: "Real risk — EPSS of 0.1 or above",
-  Low: "Lower risk — CVEs present but below elevated thresholds",
-};
-
 export const TIER_FILTER_OPTIONS = [
   { value: "all", label: "All tiers" },
   { value: "Critical", label: "Critical" },
