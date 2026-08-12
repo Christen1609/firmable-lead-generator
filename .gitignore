@@ -42,3 +42,6 @@ yarn-error.log*
 
 # Duplicate of waiting-on-form-answers/, which is tracked
 FrontendDesign.zip
+
+# Duplicate of web/src/data/kev.json, which the app imports
+/kev.json
