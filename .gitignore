@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------------------
+# Secrets — never commit. The app reads these from web/.env.local locally and
+# from the Vercel project's environment in production.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# ---------------------------------------------------------------------------
+# Scan data. The raw feed is 5.7 GB and the intermediate parquet is 712 MB —
+# both are far over GitHub's 100 MB per-file limit, and every one of these is
+# reproducible from the pipeline. See the README for how to regenerate them.
+# ---------------------------------------------------------------------------
+*.zst
+*.parquet
+company_vulns.json.gz
+companies.csv
+
+# ---------------------------------------------------------------------------
+# Dependencies and build output
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------------------------------------------------------------------------
+# Tooling and local cruft
+# ---------------------------------------------------------------------------
+.vercel
+.matilda/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Duplicate of waiting-on-form-answers/, which is tracked
+FrontendDesign.zip
