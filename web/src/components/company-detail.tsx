@@ -12,9 +12,10 @@ import {
 import type { Company, CompanyVuln } from "@/lib/types";
 import { DotField } from "@/components/dot-field";
 import { GlassTile } from "@/components/glass-icons";
-import { SpecularButton, specularPrimary } from "@/components/specular-button";
+import { SpecularButton, specularPrimary, specularSecondary } from "@/components/specular-button";
+import { useTypewriter } from "@/lib/use-typewriter";
 import { RANK_LABELS, type RankedContact } from "@/lib/contacts";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Phone } from "lucide-react";
 
 interface CompanyDetailProps {
   company: Company;
@@ -76,6 +77,10 @@ export function CompanyDetail({
   const [contacts, setContacts] = useState<RankedContact[]>([]);
   const [contactsMeta, setContactsMeta] = useState<{ organization: string | null; totalFound: number } | null>(null);
   const [contactsError, setContactsError] = useState<string | null>(null);
+  const [hookOpen, setHookOpen] = useState(false);
+  const [hookLoading, setHookLoading] = useState(false);
+  const [hookText, setHookText] = useState("");
+  const [hookError, setHookError] = useState<string | null>(null);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -134,6 +139,40 @@ export function CompanyDetail({
     }
   }
 
+  async function handleOpenHook() {
+    setHookOpen(true);
+    setHookLoading(true);
+    setHookError(null);
+    setHookText("");
+
+    try {
+      const response = await fetch("/api/generate-hook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: company.company,
+          tier: company.tier,
+          inKev: company.in_kev,
+          ransomware: company.ransomware,
+          maxEpss: company.max_epss,
+          cveCount: company.cve_count,
+          estimatedExposure,
+          ibmBreachCost,
+          topFinding: sortedVulns[0]
+            ? describeVulnerability(sortedVulns[0].summary)
+            : null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Failed to generate hook");
+      setHookText(data.hook ?? "");
+    } catch (error) {
+      setHookError(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setHookLoading(false);
+    }
+  }
+
   async function handleOpenContacts() {
     setContactsOpen(true);
     setContactsLoading(true);
@@ -170,6 +209,10 @@ export function CompanyDetail({
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 1600);
   }
+
+  // Idles harmlessly while hookText is empty, so it can sit unconditionally
+  // at the top level rather than inside the modal branch.
+  const { revealed: hookRevealed, isTyping: hookTyping } = useTypewriter(hookText);
 
   const pct = Math.round((company.max_epss ?? 0) * 100);
   const cveCount = company.cve_count ?? 0;
@@ -318,6 +361,32 @@ export function CompanyDetail({
                   </>
                 ) : (
                   "Contact Info"
+                )}
+              </SpecularButton>
+
+              {/* Same component and shape as its two siblings so the row reads as
+                  one set, but the light specular treatment marks it as the
+                  different kind of action: something you say, not something you send. */}
+              <SpecularButton
+                {...specularSecondary}
+                radius={999}
+                onClick={handleOpenHook}
+                disabled={hookLoading}
+                style={{
+                  height: 48, padding: "0 28px", fontSize: 15, fontWeight: 600,
+                  border: "1px solid var(--color-divider)",
+                }}
+              >
+                {hookLoading ? (
+                  <>
+                    <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
+                    Thinking...
+                  </>
+                ) : (
+                  <>
+                    <Phone style={{ width: 16, height: 16 }} />
+                    Generate a Hook
+                  </>
                 )}
               </SpecularButton>
             </div>
@@ -753,6 +822,114 @@ export function CompanyDetail({
                 radius={999}
                 onClick={() => setContactsOpen(false)}
                 style={{ marginLeft: "auto", height: 42, padding: "0 26px", fontSize: 14, fontWeight: 600 }}
+              >
+                Done
+              </SpecularButton>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Generate a Hook — intentionally a small box, not a full dialog. It holds
+          three spoken sentences, so it is sized to what a salesperson reads
+          aloud rather than to the screen. */}
+      {hookOpen && (
+        <div className="bw-dialog-backdrop" onClick={() => !hookLoading && setHookOpen(false)}>
+          <div
+            className="bw-dialog"
+            style={{ width: "min(520px, 100%)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ padding: "24px 28px 4px", display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <div style={{ marginRight: "auto" }}>
+                <h2 style={{ margin: 0, fontFamily: "var(--font-heading)", fontSize: 22 }}>
+                  Your opening line
+                </h2>
+                <p style={{
+                  margin: "5px 0 0", fontSize: 13,
+                  color: "color-mix(in srgb, var(--color-text) 55%, transparent)",
+                }}>
+                  {company.company} · say this, don&apos;t send it
+                </p>
+              </div>
+              <button
+                className="bw-btn bw-btn-secondary"
+                onClick={() => setHookOpen(false)}
+                style={{ borderRadius: 999, width: 34, height: 34, padding: 0 }}
+                aria-label="Close"
+              >
+                <X style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+
+            <div style={{ padding: "14px 28px 4px" }}>
+              {hookLoading && (
+                <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 14, color: "color-mix(in srgb, var(--color-text) 58%, transparent)", minHeight: 92 }}>
+                  <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} />
+                  Working out the angle...
+                </div>
+              )}
+
+              {hookError && (
+                <div style={{ padding: "12px 14px", borderRadius: "var(--radius-md)", background: "color-mix(in srgb, #b42318 10%, transparent)", color: "#8a1c12", fontSize: 13.5, lineHeight: 1.55 }}>
+                  {hookError}
+                </div>
+              )}
+
+              {!hookLoading && !hookError && hookText && (
+                <p
+                  aria-live="polite"
+                  style={{
+                    margin: 0, minHeight: 92,
+                    fontFamily: "var(--font-heading)", fontSize: 19, lineHeight: 1.5,
+                    textWrap: "pretty",
+                  }}
+                >
+                  {hookRevealed}
+                  {hookTyping && (
+                    <span
+                      aria-hidden
+                      style={{
+                        display: "inline-block", width: 2, height: "1.05em",
+                        marginLeft: 2, verticalAlign: "-0.15em",
+                        background: "var(--color-text)",
+                        animation: "bwCaret 1s steps(1) infinite",
+                      }}
+                    />
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div style={{
+              padding: "18px 28px 24px", display: "flex", alignItems: "center", gap: 9,
+              borderTop: "1px solid var(--color-divider)", marginTop: 16,
+            }}>
+              <button
+                className="bw-btn bw-btn-secondary"
+                onClick={handleOpenHook}
+                disabled={hookLoading}
+                style={{ borderRadius: 999, height: 38, padding: "0 18px", fontSize: 13 }}
+              >
+                Another angle
+              </button>
+              <button
+                className="bw-btn bw-btn-secondary"
+                onClick={async () => {
+                  if (!hookText) return;
+                  await navigator.clipboard.writeText(hookText);
+                  setIsCopied(true);
+                  setTimeout(() => setIsCopied(false), 1600);
+                }}
+                disabled={!hookText || hookLoading}
+                style={{ borderRadius: 999, height: 38, padding: "0 18px", fontSize: 13 }}
+              >
+                {isCopied ? "Copied" : "Copy"}
+              </button>
+              <SpecularButton
+                {...specularPrimary}
+                radius={999}
+                onClick={() => setHookOpen(false)}
+                style={{ marginLeft: "auto", height: 38, padding: "0 22px", fontSize: 13, fontWeight: 600 }}
               >
                 Done
               </SpecularButton>
