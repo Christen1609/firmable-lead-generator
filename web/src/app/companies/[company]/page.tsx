@@ -16,23 +16,20 @@ export default async function CompanyDetailPage({ params }: PageProps) {
   const { company: companyParam } = await params;
   const companyName = decodeURIComponent(companyParam);
 
-  const { data: company } = await supabase
-    .from("Companies")
-    .select("*")
-    .eq("company", companyName)
-    .single();
+  // All three are independent of each other, so they go out together rather
+  // than as a serial chain of round trips. notFound() is checked after.
+  const [companyResult, vulns, settingResult] = await Promise.all([
+    supabase.from("Companies").select("*").eq("company", companyName).single(),
+    getCompanyVulns(companyName),
+    supabase.from("settings").select("value").eq("key", IBM_BREACH_COST_KEY).single(),
+  ]);
 
+  const { data: company } = companyResult;
   if (!company) {
     notFound();
   }
 
-  const vulns = await getCompanyVulns(companyName);
-
-  const { data: setting } = await supabase
-    .from("settings")
-    .select("value")
-    .eq("key", IBM_BREACH_COST_KEY)
-    .single();
+  const { data: setting } = settingResult;
 
   const ibmBreachCost = setting?.value ?? 4_400_000;
   const estimatedExposure = computeEstimatedExposure(
