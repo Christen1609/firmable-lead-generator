@@ -8,6 +8,8 @@ import {
 import kevData from "@/data/kev.json";
 import { sortCompaniesByTier } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/queries";
 
 interface FindCompaniesRequestBody {
   country?: string;
@@ -153,6 +155,15 @@ export async function POST(request: NextRequest) {
       }
       vulnsUpserted = pipelineResult.vulns.length;
     }
+
+    // The list and detail reads are cached per filter combination. Without this
+    // a run would write new companies that stay invisible until the cache aged
+    // out. Purging the tag makes them appear on the next read rather than after
+    // a TTL — invalidate on write, rather than guessing a short lifetime.
+    // "max" gives stale-while-revalidate: the next reader is served instantly
+    // from the old entry while the new one is built behind them, so nobody
+    // waits on a cold query straight after a pipeline run.
+    revalidateTag(CACHE_TAGS.companies, "max");
 
     return NextResponse.json({
       message: `Found and upserted ${pipelineResult.companies.length} companies from ${pipelineResult.totalRecordsProcessed} Shodan records.`,
