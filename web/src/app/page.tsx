@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { CompanyList } from "@/components/company-list";
 import { sortCompaniesByTier } from "@/lib/constants";
-import { getCompaniesPage, getCountries, getIbmBreachCost } from "@/lib/queries";
+import { getCompaniesPage, getCountries } from "@/lib/queries";
 
 interface SearchParams {
   tier?: string;
@@ -31,10 +31,9 @@ async function ProspectList({
 
   // Plain values only — a `use cache` scope cannot read searchParams itself, so
   // the filters are passed in as arguments and become part of the cache key.
-  const [{ companies, totalPages, nextCursor }, countries, ibmBreachCost] = await Promise.all([
+  const [{ companies, totalPages, nextCursor }, countries] = await Promise.all([
     getCompaniesPage(tierFilter, countryFilter, searchQuery, currentPage, cursor),
     getCountries(),
-    getIbmBreachCost(),
   ]);
 
   return (
@@ -43,7 +42,6 @@ async function ProspectList({
       currentPage={currentPage}
       totalPages={totalPages}
       nextCursor={nextCursor}
-      ibmBreachCost={ibmBreachCost}
       countries={countries}
       currentTier={tierFilter}
       currentCountry={countryFilter}

@@ -216,7 +216,7 @@ export function CompanyDetail({
 
   const pct = Math.round((company.max_epss ?? 0) * 100);
   const cveCount = company.cve_count ?? 0;
-  const exposureBasis = `IBM average breach cost (${formatCurrency(ibmBreachCost)}) × ${pct}% probability of attack in the next 30 days. Computed in code, shown as an estimate.`;
+  const exposureBasis = `Industry average breach cost of ${formatCurrency(ibmBreachCost)} (IBM), scaled by this company’s ${pct}% probability of attack in the next 30 days. An estimate from public figures, not a quote for this company.`;
   const verdict = buildVerdict(company);
   const sortedVulns = [...vulns].sort((a, b) => (b.epss ?? 0) - (a.epss ?? 0));
 
@@ -438,7 +438,7 @@ export function CompanyDetail({
           margin: "0 0 26px", fontSize: 15, lineHeight: 1.6, maxWidth: "60ch",
           color: "color-mix(in srgb, var(--color-text) 62%, transparent)",
         }}>
-          Worst findings first, by the measured probability of attack in the next 30 days.
+          Worst first, by measured probability of attack in the next 30 days. Inferred from the software versions each server advertises, not confirmed by testing — worth their team checking.
         </p>
 
         {sortedVulns.length > 0 ? (

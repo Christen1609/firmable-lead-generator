@@ -5,8 +5,6 @@ import { useTransition, useState, useEffect } from "react";
 import {
   TIER_BADGE_STYLES,
   TIER_FILTER_OPTIONS,
-  computeEstimatedExposure,
-  formatCurrencyShort,
   type TierBadgeStyle,
 } from "@/lib/constants";
 import type { Company } from "@/lib/types";
@@ -19,7 +17,6 @@ interface CompanyListProps {
   currentPage: number;
   totalPages: number;
   nextCursor: string | null;
-  ibmBreachCost: number;
   countries: string[];
   currentTier: string;
   currentCountry: string;
@@ -66,7 +63,6 @@ export function CompanyList({
   currentPage,
   totalPages,
   nextCursor,
-  ibmBreachCost,
   countries,
   currentTier,
   currentCountry,
@@ -436,7 +432,6 @@ export function CompanyList({
                   <th style={{ padding: "20px 14px 14px" }}>Exposure tier</th>
                   <th style={{ padding: "20px 14px 14px" }}>Signals</th>
                   <th style={{ padding: "20px 14px 14px" }}>Findings</th>
-                  <th style={{ padding: "20px 0 14px 14px", textAlign: "right" }}>Est. exposure</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,7 +456,6 @@ export function CompanyList({
                   </tr>
                 ) : (
                   companies.map((company) => {
-                    const exposure = computeEstimatedExposure(company.max_epss, ibmBreachCost);
                     const style = badgeStyle(company.tier);
                     const cveCount = company.cve_count ?? 0;
                     return (
@@ -501,12 +495,6 @@ export function CompanyList({
                           color: "color-mix(in srgb, var(--color-text) 72%, transparent)",
                         }}>
                           {cveCount} {cveCount === 1 ? "vulnerability" : "vulnerabilities"}
-                        </td>
-                        <td style={{
-                          padding: "22px 0 22px 14px", textAlign: "right",
-                          fontSize: 17, fontWeight: 600, fontVariantNumeric: "tabular-nums",
-                        }}>
-                          {exposure !== null ? formatCurrencyShort(exposure) : "—"}
                         </td>
                       </tr>
                     );

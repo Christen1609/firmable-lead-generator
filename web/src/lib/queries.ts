@@ -35,17 +35,24 @@ export interface CompaniesPage {
 const CURSOR_COMPANY = /^[A-Za-z0-9.-]{1,253}$/;
 
 export function encodeCursor(company: Company): string {
-  return `${company.max_epss ?? 0}~${company.company}`;
+  return [
+    company.max_epss ?? 0,
+    company.ransomware ? 1 : 0,
+    company.cve_count ?? 0,
+    company.company,
+  ].join("~");
 }
 
-function decodeCursor(raw: string): { epss: number; company: string } | null {
-  const split = raw.indexOf("~");
-  if (split < 0) return null;
-  const epss = Number(raw.slice(0, split));
-  const company = raw.slice(split + 1);
-  if (!Number.isFinite(epss)) return null;
+function decodeCursor(raw: string) {
+  const parts = raw.split("~");
+  if (parts.length !== 4) return null;
+  const epss = Number(parts[0]);
+  const ransomware = parts[1] === "1";
+  const cveCount = Number(parts[2]);
+  const company = parts[3];
+  if (!Number.isFinite(epss) || !Number.isFinite(cveCount)) return null;
   if (!CURSOR_COMPANY.test(company)) return null;
-  return { epss, company };
+  return { epss, ransomware, cveCount, company };
 }
 
 export async function getCompaniesPage(
@@ -68,13 +75,21 @@ export async function getCompaniesPage(
   const seek = cursor ? decodeCursor(cursor) : null;
 
   if (seek) {
+    const r = seek.ransomware;
     query = query.or(
-      `max_epss.lt.${seek.epss},and(max_epss.eq.${seek.epss},company.lt.${seek.company})`
+      [
+        `max_epss.lt.${seek.epss}`,
+        `and(max_epss.eq.${seek.epss},ransomware.lt.${r})`,
+        `and(max_epss.eq.${seek.epss},ransomware.eq.${r},cve_count.lt.${seek.cveCount})`,
+        `and(max_epss.eq.${seek.epss},ransomware.eq.${r},cve_count.eq.${seek.cveCount},company.lt.${seek.company})`,
+      ].join(",")
     );
   }
 
   query = query
     .order("max_epss", { ascending: false })
+    .order("ransomware", { ascending: false })
+    .order("cve_count", { ascending: false })
     .order("company", { ascending: false });
 
   const { data, count } = seek

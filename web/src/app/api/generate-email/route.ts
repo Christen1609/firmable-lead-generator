@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_MODEL, restoreCompanyDomain } from "@/lib/gemini";
-import { formatCurrency, formatCurrencyMillions } from "@/lib/constants";
+import { formatCurrency } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -57,30 +57,24 @@ export async function POST(request: NextRequest) {
 
   const body: EmailRequestBody = await request.json();
 
-  const tier = body.tier ?? "elevated";
   const attackPercent =
     body.maxEpss !== null ? `${Math.round(body.maxEpss * 100)}%` : null;
 
-  // Subject carries the tier word and a rounded figure; the body carries the
-  // exact one. Both come from the same computed exposure, never from the model.
+  // Computed here and interpolated as text; the model phrases it, never derives it.
   const exposureExact =
     body.estimatedExposure !== null ? formatCurrency(body.estimatedExposure) : null;
-  const exposureShort =
-    body.estimatedExposure !== null
-      ? formatCurrencyMillions(body.estimatedExposure)
-      : null;
 
-  const subjectLine = exposureShort
-    ? // Title case for the unit, since the rest of the subject is title case.
-      `${tier} Security Vulnerabilities Will Cost ${exposureShort.replace(" million", " Million")}`
-    : `${tier} Security Vulnerabilities Found at ${body.company}`;
+  // No dollar figure in the subject. It reads as spam, trips filters, and
+  // asserts a cost this scan cannot know for one company. Their own domain plus
+  // a specific, checkable observation is harder to ignore and easier to defend.
+  const subjectLine = `Vulnerable software versions visible on ${body.company}`;
 
   // The "actively exploited / on the KEV list" claim is only true when the
   // company actually has a KEV hit. Asserting it otherwise would be a straight
   // fabrication in an email that gets sent, so the sentence branches on the data.
   const riskSentence = body.inKev
-    ? `${body.company} is currently classified as ${tier} risk due to several actively exploited vulnerabilities that appear on the CISA Known Exploited Vulnerabilities list, meaning attackers are leveraging them in the wild right now.`
-    : `${body.company} is currently classified as ${tier} risk: the most serious of the ${body.cveCount ?? "known"} vulnerabilities visible from outside your network carries a ${attackPercent ?? "measurable"} probability of being attacked in the next 30 days.`;
+    ? `Our scan shows ${body.company} running software versions affected by vulnerabilities on the CISA Known Exploited Vulnerabilities list, which attackers are leveraging in the wild right now.`
+    : `Our scan shows ${body.company} running software versions affected by known vulnerabilities, the most serious carrying a ${attackPercent ?? "measurable"} probability of being attacked in the next 30 days.`;
 
   const costSentence = exposureExact
     ? `These vulnerabilities represent an estimated ${exposureExact} in valuation and damages.`
@@ -110,6 +104,7 @@ The Security Research Team
 RULES:
 - The body is exactly THREE sentences, each on its own line, with a blank line between them. No paragraphs, no bullet points, no extra commentary, no postscript.
 - Sentence 1 must convey exactly this, and you may lightly reword it but must not add or drop any fact: "${riskSentence}"
+- This is an external scan of advertised software versions, not a confirmed breach or a test of their systems. Never state that they "have" a vulnerability or that they have been compromised. Say what was observed, and invite them to check.
 - Sentence 2 must state the cost and must contain the figure ${exposureExact ?? "as given"} written exactly like that, digits and all: "${costSentence}"
 - Sentence 3 must be reproduced EXACTLY as written here, word for word, including the URL. Do not reword it, do not make it warmer, do not add "we invite you" or any similar phrasing: "${ctaSentence}"
 - Use the subject line exactly as given above.

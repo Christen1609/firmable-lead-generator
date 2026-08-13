@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
   // Only claim active exploitation when the company actually has a KEV hit —
   // this gets said out loud to a real person, so it has to be true.
   const threatLine = body.inKev
-    ? `a flaw on their systems that is confirmed to be under active attack in the wild right now`
-    : `a flaw on their systems with a ${attackPercent ?? "measurable"} chance of being attacked in the next 30 days`;
+    ? `software versions affected by a flaw that is confirmed to be under active attack in the wild right now`
+    : `software versions affected by a flaw with a ${attackPercent ?? "measurable"} chance of being attacked in the next 30 days`;
 
   // The cost figure is IBM's average breach cost scaled by this company's own
   // attack probability. It is an estimate, not a record of a past incident, and
@@ -76,7 +76,7 @@ ${body.ransomware ? "- At least one of these flaws is used by known ransomware g
 
 RULES:
 - Exactly 3 sentences, no more.
-- Sentence 1: name what is wrong, in plain English a non-technical owner follows.
+- Sentence 1: name what is wrong, in plain English a non-technical owner follows. This came from an external scan of the versions their servers advertise, not from testing their systems, so say what was observed rather than asserting they are vulnerable.
 - Sentence 2: the money. State the cost as an average and this company's exposure as an estimate. Never say or imply this company was already breached, and never claim a past incident.
 - Sentence 3: a short question asking if they would want it fixed.
 - Conversational and direct, the way a person actually talks. No jargon, no CVE IDs, no percentages read out as decimals.
