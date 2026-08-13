@@ -1,6 +1,6 @@
 # Sales Intelligence Platform
 
-OSINT-driven sales prospecting tool that turns raw internet scan data into a ranked list of companies with real security exposures. Built for a cybersecurity software company's sales team to identify who needs the product and open conversations with evidence-backed urgency.
+Sales prospecting tool that turns raw internet scan data into a ranked list of companies with real, externally visible security exposures. Companies are ranked by what attackers are actively exploiting rather than by severity score, so a sales team can open with evidence rather than a cold pitch.
 
 ## Stack
 

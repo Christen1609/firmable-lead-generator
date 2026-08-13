@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Lead Generator — Exposure Intelligence",
   description:
-    "OSINT-driven sales prospecting tool that turns raw scan data into ranked, actionable company intelligence.",
+    "Sales prospecting built from public internet scan data. Companies ranked by what attackers are actively exploiting, not by severity scores.",
 };
 
 export default function RootLayout({
