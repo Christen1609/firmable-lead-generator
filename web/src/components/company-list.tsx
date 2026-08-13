@@ -18,6 +18,7 @@ interface CompanyListProps {
   companies: Company[];
   currentPage: number;
   totalPages: number;
+  nextCursor: string | null;
   ibmBreachCost: number;
   countries: string[];
   currentTier: string;
@@ -64,6 +65,7 @@ export function CompanyList({
   companies,
   currentPage,
   totalPages,
+  nextCursor,
   ibmBreachCost,
   countries,
   currentTier,
@@ -110,6 +112,7 @@ export function CompanyList({
     if (country !== "all") params.set("country", country);
     if (search) params.set("search", search);
     if (page && page !== "1") params.set("page", page);
+    if (overrides.after) params.set("after", overrides.after);
     const queryString = params.toString();
     startTransition(() => {
       router.push(queryString ? `/?${queryString}` : "/");
@@ -131,6 +134,14 @@ export function CompanyList({
 
   function handlePageChange(newPage: number) {
     pushRoute({ page: String(newPage) });
+  }
+
+  function handleNextPage() {
+    if (nextCursor && currentPage + 1 <= totalPages) {
+      pushRoute({ page: String(currentPage + 1), after: nextCursor });
+      return;
+    }
+    pushRoute({ page: String(currentPage + 1) });
   }
 
   const pageRange = buildPageRange(currentPage, totalPages);
@@ -544,7 +555,7 @@ export function CompanyList({
                 )}
                 <button
                   className="bw-btn bw-btn-secondary"
-                  onClick={() => handlePageChange(currentPage + 1)}
+                  onClick={handleNextPage}
                   disabled={currentPage >= totalPages || isPending}
                   style={{ borderRadius: 999, height: 38, padding: "0 16px", fontSize: 13 }}
                 >

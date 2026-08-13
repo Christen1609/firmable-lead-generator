@@ -29,13 +29,31 @@ const SETTINGS_TAG = "settings";
 export interface CompaniesPage {
   companies: Company[];
   totalPages: number;
+  nextCursor: string | null;
+}
+
+const CURSOR_COMPANY = /^[A-Za-z0-9.-]{1,253}$/;
+
+export function encodeCursor(company: Company): string {
+  return `${company.max_epss ?? 0}~${company.company}`;
+}
+
+function decodeCursor(raw: string): { epss: number; company: string } | null {
+  const split = raw.indexOf("~");
+  if (split < 0) return null;
+  const epss = Number(raw.slice(0, split));
+  const company = raw.slice(split + 1);
+  if (!Number.isFinite(epss)) return null;
+  if (!CURSOR_COMPANY.test(company)) return null;
+  return { epss, company };
 }
 
 export async function getCompaniesPage(
   tier: string,
   country: string,
   search: string,
-  page: number
+  page: number,
+  cursor: string | null = null
 ): Promise<CompaniesPage> {
   "use cache";
   cacheTag(COMPANIES_TAG);
@@ -47,14 +65,31 @@ export async function getCompaniesPage(
   if (country !== "all") query = query.eq("country", country);
   if (search) query = query.ilike("company", `%${search}%`);
 
-  const offset = (page - 1) * PAGE_SIZE;
-  const { data, count } = await query
+  const seek = cursor ? decodeCursor(cursor) : null;
+
+  if (seek) {
+    query = query.or(
+      `max_epss.lt.${seek.epss},and(max_epss.eq.${seek.epss},company.lt.${seek.company})`
+    );
+  }
+
+  query = query
     .order("max_epss", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+    .order("company", { ascending: false });
+
+  const { data, count } = seek
+    ? await query.limit(PAGE_SIZE)
+    : await query.range((page - 1) * PAGE_SIZE, (page - 1) * PAGE_SIZE + PAGE_SIZE - 1);
+
+  const companies = (data ?? []) as Company[];
 
   return {
-    companies: (data ?? []) as Company[],
+    companies,
     totalPages: Math.ceil((count ?? 0) / PAGE_SIZE),
+    nextCursor:
+      companies.length === PAGE_SIZE
+        ? encodeCursor(companies[companies.length - 1])
+        : null,
   };
 }
 

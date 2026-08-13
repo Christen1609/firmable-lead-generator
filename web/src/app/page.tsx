@@ -8,6 +8,7 @@ interface SearchParams {
   country?: string;
   search?: string;
   page?: string;
+  after?: string;
 }
 
 /**
@@ -26,11 +27,12 @@ async function ProspectList({
   const countryFilter = params.country ?? "all";
   const searchQuery = params.search ?? "";
   const currentPage = Math.max(1, parseInt(params.page ?? "1", 10));
+  const cursor = params.after ?? null;
 
   // Plain values only — a `use cache` scope cannot read searchParams itself, so
   // the filters are passed in as arguments and become part of the cache key.
-  const [{ companies, totalPages }, countries, ibmBreachCost] = await Promise.all([
-    getCompaniesPage(tierFilter, countryFilter, searchQuery, currentPage),
+  const [{ companies, totalPages, nextCursor }, countries, ibmBreachCost] = await Promise.all([
+    getCompaniesPage(tierFilter, countryFilter, searchQuery, currentPage, cursor),
     getCountries(),
     getIbmBreachCost(),
   ]);
@@ -40,6 +42,7 @@ async function ProspectList({
       companies={sortCompaniesByTier(companies)}
       currentPage={currentPage}
       totalPages={totalPages}
+      nextCursor={nextCursor}
       ibmBreachCost={ibmBreachCost}
       countries={countries}
       currentTier={tierFilter}
