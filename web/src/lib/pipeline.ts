@@ -42,6 +42,13 @@ const MAX_DOMAIN_SERVER_COUNT = 50;
  */
 const MIN_ANSWER_RATE = 0.5;
 
+/**
+ * Domains per classifier call. One unbounded prompt containing every ambiguous
+ * domain eventually exceeds the context window and truncates, which looks
+ * exactly like the model declining to answer.
+ */
+const CLASSIFIER_CHUNK_SIZE = 40;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -110,6 +117,8 @@ export interface DomainResolution {
   unanswered: string[];
   /** True when the reply was too incomplete to trust at all. */
   batchRejected: boolean;
+  /** Domains answered from the persisted verdict cache, never sent to the model. */
+  cacheHits: number;
 }
 
 export interface ResolutionReport {
@@ -118,6 +127,7 @@ export interface ResolutionReport {
   classifiedInfrastructure: number;
   unanswered: number;
   batchRejected: boolean;
+  cacheHits: number;
 }
 
 export interface PipelineResult {
@@ -180,24 +190,54 @@ function isLikelyInfrastructure(domain: string): boolean {
 // Layer 3 — AI resolution for ambiguous domains
 // ---------------------------------------------------------------------------
 
-async function resolveAmbiguousDomains(
-  domains: string[],
-  geminiApiKey: string
-): Promise<DomainResolution> {
-  if (domains.length === 0) {
-    return {
-      asked: 0,
-      business: new Set(),
-      infrastructure: new Set(),
-      unanswered: [],
-      batchRejected: false,
-    };
+type Verdict = "business" | "infrastructure";
+
+export interface VerdictStore {
+  get(domains: string[]): Promise<Map<string, Verdict>>;
+  put(entries: { domain: string; verdict: Verdict }[]): Promise<void>;
+}
+
+/**
+ * Domains with an answer that cannot legitimately change, mixed into every
+ * chunk. If the model gets one of these wrong the batch is not trustworthy,
+ * regardless of how confident the rest of its answers look. This is the only
+ * check that catches a confidently wrong verdict rather than a malformed one.
+ */
+const CANARIES: { domain: string; expect: Verdict }[] = [
+  { domain: "cloudflare.com", expect: "infrastructure" },
+  { domain: "bmw.com", expect: "business" },
+  { domain: "akamai.com", expect: "infrastructure" },
+  { domain: "siemens.com", expect: "business" },
+];
+
+function parseVerdicts(
+  responseText: string,
+  asked: string[]
+): Map<string, Verdict> {
+  const askedByKey = new Map(asked.map((d) => [d.toLowerCase(), d]));
+  const verdicts = new Map<string, Verdict>();
+
+  for (const rawLine of responseText.trim().split("\n")) {
+    const line = rawLine.trim().replace(/^\d+[.)]\s*/, "");
+    const match = line.match(/^(.+?)\s*[=:]\s*(business|infrastructure)/i);
+    if (!match) continue;
+    const original = askedByKey.get(match[1].trim().toLowerCase());
+    if (!original) continue;
+    verdicts.set(original, match[2].toLowerCase() as Verdict);
   }
 
-  const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  return verdicts;
+}
 
-  const domainList = domains.map((domain, index) => `${index + 1}. ${domain}`).join("\n");
+async function classifyChunk(
+  domains: string[],
+  canaries: { domain: string; expect: Verdict }[],
+  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>
+): Promise<{ verdicts: Map<string, Verdict>; trustworthy: boolean }> {
+  const submitted = [...domains, ...canaries.map((c) => c.domain)];
+  const domainList = submitted
+    .map((domain, index) => `${index + 1}. ${domain}`)
+    .join("\n");
 
   const prompt = `You are classifying internet domains. For each domain below, answer with only "business" or "infrastructure".
 
@@ -209,70 +249,107 @@ Only return the domain name and classification, one per line, in format: domain=
 Domains:
 ${domainList}`;
 
+  let verdicts: Map<string, Verdict>;
+  try {
+    const result = await model.generateContent(prompt);
+    verdicts = parseVerdicts(result.response.text(), submitted);
+  } catch {
+    return { verdicts: new Map(), trustworthy: false };
+  }
+
+  for (const canary of canaries) {
+    if (verdicts.get(canary.domain) !== canary.expect) {
+      return { verdicts: new Map(), trustworthy: false };
+    }
+    verdicts.delete(canary.domain);
+  }
+
+  const answered = domains.filter((d) => verdicts.has(d)).length;
+  const trustworthy =
+    domains.length === 0 || answered / domains.length >= MIN_ANSWER_RATE;
+
+  return { verdicts, trustworthy: trustworthy };
+}
+
+async function resolveAmbiguousDomains(
+  domains: string[],
+  geminiApiKey: string,
+  store?: VerdictStore
+): Promise<DomainResolution> {
   const business = new Set<string>();
   const infrastructure = new Set<string>();
 
-  // Index by lowercase so a reply that changes case still reconciles.
-  const askedByKey = new Map(domains.map((d) => [d.toLowerCase(), d]));
+  if (domains.length === 0) {
+    return { asked: 0, business, infrastructure, unanswered: [], batchRejected: false, cacheHits: 0 };
+  }
 
-  try {
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-
-    for (const rawLine of responseText.trim().split("\n")) {
-      // Tolerant on purpose. The model is asked for `domain=classification`
-      // but routinely keeps its list numbering, pads with spaces, uses a colon,
-      // or adds trailing punctuation. Each of those used to make the line
-      // unparseable, and an unparseable line silently deleted the domain.
-      const line = rawLine.trim().replace(/^\d+[.)]\s*/, "");
-      const match = line.match(/^(.+?)\s*[=:]\s*(business|infrastructure)\b/i);
-      if (!match) continue;
-
-      const original = askedByKey.get(match[1].trim().toLowerCase());
-      if (!original) continue; // a domain we never asked about
-
-      if (match[2].toLowerCase() === "business") business.add(original);
-      else infrastructure.add(original);
+  // Verdicts do not change, and the same domains recur across runs, so a cache
+  // hit here removes the domain from the prompt entirely.
+  let toAsk = domains;
+  let cacheHits = 0;
+  if (store) {
+    try {
+      const cached = await store.get(domains);
+      for (const [domain, verdict] of cached) {
+        if (verdict === "business") business.add(domain);
+        else infrastructure.add(domain);
+      }
+      cacheHits = cached.size;
+      toAsk = domains.filter((d) => !cached.has(d));
+    } catch {
+      toAsk = domains;
     }
-  } catch {
-    // Network or API failure: nothing was classified, so everything is
-    // unanswered and everything is kept.
-    return {
-      asked: domains.length,
-      business,
-      infrastructure,
-      unanswered: [...domains],
-      batchRejected: true,
-    };
+  }
+
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+  const fresh: { domain: string; verdict: Verdict }[] = [];
+  let anyChunkRejected = false;
+
+  // Chunked so the prompt stays a bounded size. One unbounded prompt eventually
+  // exceeds the context window and truncates, which is indistinguishable from
+  // the model declining to answer.
+  for (let i = 0; i < toAsk.length; i += CLASSIFIER_CHUNK_SIZE) {
+    const chunk = toAsk.slice(i, i + CLASSIFIER_CHUNK_SIZE);
+    const chunkIndex = i / CLASSIFIER_CHUNK_SIZE;
+    const canaries = CANARIES.filter((c) => !chunk.includes(c.domain)).slice(
+      chunkIndex % 2 === 0 ? 0 : 2,
+      chunkIndex % 2 === 0 ? 2 : 4
+    );
+
+    const { verdicts, trustworthy } = await classifyChunk(chunk, canaries, model);
+    if (!trustworthy) {
+      anyChunkRejected = true;
+      continue;
+    }
+
+    for (const [domain, verdict] of verdicts) {
+      if (verdict === "business") business.add(domain);
+      else infrastructure.add(domain);
+      fresh.push({ domain, verdict });
+    }
+  }
+
+  if (store && fresh.length > 0) {
+    try {
+      await store.put(fresh);
+    } catch {
+      // Persisting is an optimisation; a failure must not lose the verdicts.
+    }
   }
 
   const unanswered = domains.filter(
     (d) => !business.has(d) && !infrastructure.has(d)
   );
 
-  // If the model answered for less than half of what it was asked, the reply is
-  // too incomplete to trust as evidence about the rest — discard its verdicts
-  // entirely rather than act on a fragment.
-  const answered = domains.length - unanswered.length;
-  const batchRejected =
-    domains.length > 0 && answered / domains.length < MIN_ANSWER_RATE;
-
-  if (batchRejected) {
-    return {
-      asked: domains.length,
-      business: new Set(),
-      infrastructure: new Set(),
-      unanswered: [...domains],
-      batchRejected: true,
-    };
-  }
-
   return {
     asked: domains.length,
     business,
     infrastructure,
     unanswered,
-    batchRejected: false,
+    batchRejected: anyChunkRejected,
+    cacheHits,
   };
 }
 
@@ -370,7 +447,8 @@ export async function queryShodanApi(
 export async function runPipeline(
   records: ShodanRecord[],
   kevMap: Map<string, KevEntry>,
-  geminiApiKey: string
+  geminiApiKey: string,
+  verdictStore?: VerdictStore
 ): Promise<PipelineResult> {
   // Layer 1 + Layer 2: extract and filter domains
   const domainToRecords = new Map<string, ShodanRecord[]>();
@@ -416,7 +494,8 @@ export async function runPipeline(
   if (ambiguousDomains.length > 0 && geminiApiKey) {
     const resolution = await resolveAmbiguousDomains(
       ambiguousDomains,
-      geminiApiKey
+      geminiApiKey,
+      verdictStore
     );
 
     for (const domain of resolution.infrastructure) {
@@ -438,6 +517,7 @@ export async function runPipeline(
       classifiedInfrastructure: resolution.infrastructure.size,
       unanswered: resolution.unanswered.length,
       batchRejected: resolution.batchRejected,
+      cacheHits: resolution.cacheHits,
     };
   }
 

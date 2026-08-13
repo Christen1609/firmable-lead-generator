@@ -8,6 +8,7 @@ import {
 import kevData from "@/data/kev.json";
 import { sortCompaniesByTier } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { supabaseVerdictStore } from "@/lib/verdict-store";
 import { revalidateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/queries";
 
@@ -107,7 +108,8 @@ export async function POST(request: NextRequest) {
     const pipelineResult = await runPipeline(
       shodanRecords,
       kevMap,
-      geminiApiKey
+      geminiApiKey,
+      supabaseVerdictStore
     );
 
     if (pipelineResult.companies.length === 0) {
