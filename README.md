@@ -38,41 +38,120 @@ adds newly discovered companies to the same tables the batch data lives in.
 ## Architecture
 
 ```
-test_scans.json.zst  (5.6 GB, 6,124,461 hosts)
+ 1. OFFLINE BATCH  (run once, seeded the database)
+ ─────────────────────────────────────────────────
+   test_scans.json.zst  5.6 GB / 6,124,461 host records
         │
-        │  DuckDB streaming scan — never loaded into memory
-        ▼
-  companies_raw.parquet
+        ▼   DuckDB streaming read, never loaded into memory
+   entity resolution ─► KEV join (CISA) ─► tier scoring
         │
-        │  Layer 1  extract root domain from TLS cert CN, else hostname
-        │  Layer 2  drop IPs, .arpa, and infrastructure keywords (hosting, cloud, ISP…)
-        │  Layer 3  Gemini classifies only the ambiguous domains (>50 servers)
         ▼
-  resolved companies
+   25,117 companies + 177,679 findings ──────────┐
+                                                 │
+                                                 ▼
+ 2. READ PATH  (every page view)          ┌──────────────────┐
+ ────────────────────────────────         │                  │
+   Browser                                │     Supabase     │
+      │                                   │     Postgres     │
+      ▼                                   │      (syd1)      │
+   Vercel edge ─► prerendered shell       │                  │
+      │                                   └──────────────────┘
+      ▼                                       ▲          ▲
+   Next.js server (syd1)                      │ on miss  │
+      │                                       │          │
+      ├─► use cache ─────────────────────────►┘          │
+      │   key = tier + country + search + page + cursor   │
+      │   TTL: minutes (companies) / days (config)        │
+      │                                                   │
+      └─► findings, uncached ─────────────────────────────┘
+
+
+ 3. WRITE PATH  (Find More, on demand)
+ ──────────────────────────────────────
+   user query (country + product)
         │
-        │  join CISA KEV  →  in_kev, ransomware flags
-        │  score tier     →  Critical / High / Medium / Low
-        │  aggregate      →  max CVSS, max EPSS, distinct CVE count
         ▼
-  Supabase ──┬── Companies      (one row per company, the summary)
-             └── Company_Vulns  (one row per CVE per company, the detail)
-                        │
-                        ▼
-              Next.js app on Vercel
+   Shodan /host/search  ──►  same five stages as batch:
+        │                    extract ─► resolve (rules, then Gemini on
+        │                    every survivor, verdicts cached by domain)
+        │                    ─► KEV ─► score
+        ▼
+   upsert into Supabase ─► revalidateTag('companies')
+
+
+ 4. PER-CLICK SERVICES  (read only, nothing persisted)
+ ──────────────────────────────────────────────────────
+   company detail page
+        │
+        ├─► Gemini 2.5-flash ─► outreach email  ─┐
+        ├─► Gemini 2.5-flash ─► call hook       ├─► rendered, then discarded
+        └─► Hunter.io        ─► contacts        ─┘
 ```
 
-The live **Find More** pipeline is the same five stages implemented in
-TypeScript, writing to the same two tables. A company's findings do not depend on
-whether it arrived via the batch load or a live run — there is one source of
-truth for both.
+The live **Find More** pipeline runs the same five stages as the batch, writing
+to the same tables. A company's findings do not depend on whether it arrived via
+the batch load or a live run — there is one source of truth for both.
+
+Reads are cached per filter combination and invalidated on write, so a pipeline
+run surfaces immediately rather than when a TTL expires. Findings are
+deliberately left uncached: with 25,000+ companies the hit rate would be too low
+to be worth the churn.
 
 ### Why the filtering is layered
 
-The expensive step runs last and on the smallest set. Deterministic rules remove
-the obvious infrastructure first (an IP with no hostname is not a company; a
-domain containing `hosting` or `aws` is not a prospect). Only domains that are
-genuinely ambiguous — typically ones serving an implausible number of hosts —
-reach the LLM. Most records never cost an API call.
+Deterministic rules run first and remove the obvious infrastructure: an IP with
+no hostname is not a company, and a domain containing `hosting` or `aws` is not
+a prospect. Whatever survives goes to the model.
+
+That last part changed after measurement. The model originally only saw domains
+serving more than 50 hosts, on the assumption that everything else was cheap to
+judge by name. A sampled audit found the opposite — six small regional ISPs had
+survived into the prospect list, and their domain names carry no signal at all
+(`leon.com.pl`, `houseti.com.br`). No keyword list in any language catches those,
+and with a handful of servers each they never crossed the threshold to reach the
+model. **The one filter that could have identified them was switched off for
+exactly the cases that needed it.**
+
+Classifying everything is affordable because verdicts are chunked at 40 per call
+and cached by domain in `Domain_Classifications`. A domain seen before costs
+nothing, and a fresh 100-record run is one or two API calls.
+
+### How the classifier is kept honest
+
+Three properties, all enforced in code rather than promised in a prompt:
+
+- **Fails open.** Only a domain the model explicitly calls `infrastructure` is
+  dropped. Anything unanswered is kept and counted. Previously a truncated reply
+  or a renumbered line silently deleted a domain, which was indistinguishable
+  from a real verdict.
+- **Reconciled.** Verdicts are matched against domains submitted. If under half
+  a batch comes back answered, every verdict in it is discarded rather than
+  partially believed.
+- **Canaries.** Each batch carries known-answer domains — `cloudflare.com` must
+  return infrastructure, `bmw.com` must return business. A wrong canary discards
+  the batch. Reconciliation catches malformed output; this catches confidently
+  wrong output.
+
+### Measured accuracy
+
+Entity resolution was audited against a reproducible random sample rather than
+assumed:
+
+| | |
+|---|---|
+| Precision | **~80%** — 32 of 40 reachable companies in a 50-company sample were genuine organisations |
+| Recall | **~97–99%** — 40 sampled domains from those the filter discarded contained 2–3 real businesses |
+
+The filter is deliberately conservative: it rarely loses a real prospect, and
+pays for that by letting some infrastructure through. For a sales tool that is
+the right direction — a missed company is a lead you never knew existed, while a
+wrongly-kept ISP costs a rep thirty seconds. A security product would tune the
+opposite way.
+
+Limits worth stating: n=50 gives roughly a ±12% interval, a homepage title is a
+proxy for ground truth rather than ground truth, and recall was measured against
+the keyword filter only. The plain-English CVE descriptions and the contact
+ranking remain unmeasured.
 
 ### How the tier is decided
 
