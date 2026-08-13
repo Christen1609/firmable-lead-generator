@@ -13,12 +13,24 @@ const INFRASTRUCTURE_KEYWORDS = [
   "isp",
   "cloud",
   "hosting",
+  "webhost",
   "dns",
   "broadband",
   "telecom",
+  "telekom",
+  "comunica",
+  "provider",
+  "backbone",
+  "peering",
   "server",
+  "servidor",
   "datacenter",
+  "datacentre",
   "colo",
+  "colocation",
+  "vps",
+  "fibernet",
+  "netcom",
   "aws",
   "azure",
   "amazon",
@@ -32,9 +44,24 @@ const INFRASTRUCTURE_KEYWORDS = [
   "contabo",
 ];
 
+/** TLDs that only an infrastructure operator registers. */
+const INFRASTRUCTURE_TLDS = [".network", ".hosting", ".cloud"];
+
 const SYSTEM_SUFFIXES = [".arpa", "in-addr", "in-addr.arpa"];
 
-const MAX_DOMAIN_SERVER_COUNT = 50;
+/**
+ * Server count above which a domain was previously sent to the classifier.
+ *
+ * Set to 0 so every surviving domain is classified. A sample of 50 companies
+ * found 6 small regional ISPs in the list: their domain names say nothing
+ * ("leon.com.pl", "houseti.com.br"), so no keyword can catch them, and with a
+ * handful of servers each they never crossed the old threshold to reach the
+ * model. The filter that could identify them never saw them.
+ *
+ * Affordable now because verdicts are chunked and cached: a repeat domain costs
+ * nothing, and a fresh run of 100 Shodan records is one or two calls.
+ */
+const MAX_DOMAIN_SERVER_COUNT = 0;
 
 /**
  * If the classifier answers for fewer than this share of the domains it was
@@ -168,7 +195,10 @@ function isIpAddress(hostname: string): boolean {
 }
 
 function isSystemJunk(domain: string): boolean {
-  return SYSTEM_SUFFIXES.some((suffix) => domain.endsWith(suffix));
+  return (
+    SYSTEM_SUFFIXES.some((suffix) => domain.endsWith(suffix)) ||
+    INFRASTRUCTURE_TLDS.some((tld) => domain.endsWith(tld))
+  );
 }
 
 function matchesInfrastructureKeywords(domain: string): boolean {

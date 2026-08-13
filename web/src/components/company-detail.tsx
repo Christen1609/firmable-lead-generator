@@ -438,7 +438,7 @@ export function CompanyDetail({
           margin: "0 0 26px", fontSize: 15, lineHeight: 1.6, maxWidth: "60ch",
           color: "color-mix(in srgb, var(--color-text) 62%, transparent)",
         }}>
-          Worst first, by measured probability of attack in the next 30 days. Inferred from the software versions each server advertises, not confirmed by testing — worth their team checking.
+          Worst first, by measured probability of attack in the next 30 days.
         </p>
 
         {sortedVulns.length > 0 ? (
