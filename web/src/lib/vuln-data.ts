@@ -1,4 +1,6 @@
+import { cacheTag, cacheLife } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { CACHE_TAGS } from "@/lib/queries";
 import kevData from "@/data/kev.json";
 import type { CompanyVuln } from "@/lib/types";
 
@@ -41,10 +43,28 @@ function loadRansomwareCves(): Set<string> {
  *
  * Ordering and the cap are done in the query so Postgres uses the
  * (company, epss desc) index rather than shipping every row to the app.
+ *
+ * Cached per company. This was previously the one uncached query on the detail
+ * page, which made caching the other two pointless: all three run under one
+ * Promise.all, so the page waits for the slowest, and an uncached query held
+ * the floor no matter how fast its siblings returned. Caching it is what lets
+ * a repeat view reach Postgres zero times.
+ *
+ * The objection to caching it was that 25,000+ companies would rarely repeat.
+ * That argument reads the access pattern backwards — nobody browses 25,000
+ * companies, they open the top of a ranked list over and over, so the entries
+ * that exist are exactly the ones asked for again.
+ *
+ * Tagged with the same key the pipeline purges, so a live run makes new
+ * findings visible immediately rather than when the TTL lapses.
  */
 export async function getCompanyVulns(
   companyName: string
 ): Promise<CompanyVuln[]> {
+  "use cache";
+  cacheTag(CACHE_TAGS.companies);
+  cacheLife("minutes");
+
   const { data, error } = await supabase
     .from("Company_Vulns")
     .select("company,cve_id,cvss,epss,summary,in_kev")

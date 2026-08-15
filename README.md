@@ -59,11 +59,10 @@ adds newly discovered companies to the same tables the batch data lives in.
       ▼                                       ▲          ▲
    Next.js server (syd1)                      │ on miss  │
       │                                       │          │
-      ├─► use cache ─────────────────────────►┘          │
-      │   key = tier + country + search + page + cursor   │
-      │   TTL: minutes (companies) / days (config)        │
-      │                                                   │
-      └─► findings, uncached ─────────────────────────────┘
+      └─► use cache ─────────────────────────►┘          │
+          key = tier + country + search + page + cursor   │
+          TTL: minutes (companies + findings) / days (config)
+          a repeat view reaches Postgres zero times ──────┘
 
 
  3. WRITE PATH  (Find More, on demand)
@@ -93,9 +92,15 @@ to the same tables. A company's findings do not depend on whether it arrived via
 the batch load or a live run — there is one source of truth for both.
 
 Reads are cached per filter combination and invalidated on write, so a pipeline
-run surfaces immediately rather than when a TTL expires. Findings are
-deliberately left uncached: with 25,000+ companies the hit rate would be too low
-to be worth the churn.
+run surfaces immediately rather than when a TTL expires.
+
+Caching only the cheap queries turned out to be worth nothing. The detail page
+issues its three queries under one `Promise.all`, so the page waits for the
+slowest — and while the findings query was uncached it held that floor no matter
+how fast the other two returned. Caching it too is what makes a repeat view cost
+zero database round trips. The argument for leaving it out was that 25,000+
+companies would rarely repeat, which reads the access pattern backwards: nobody
+browses 25,000 companies, they reopen the top of a ranked list.
 
 ### Why the filtering is layered
 
