@@ -17,14 +17,6 @@ interface FindCompaniesRequestBody {
   product?: string;
 }
 
-/**
- * Shodan's query language is space-separated `filter:value` pairs, and both of
- * these values are interpolated straight into that string in pipeline.ts. Left
- * unvalidated, a caller sending `nginx port:22 country:RU` does not just choose
- * a product — they rewrite the entire query, including filters this app never
- * intended to expose. Colons and spaces are the injection vector, so neither
- * pattern admits them.
- */
 const COUNTRY_PATTERN = /^[A-Za-z]{2}$/;
 const PRODUCT_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
 
@@ -158,13 +150,7 @@ export async function POST(request: NextRequest) {
       vulnsUpserted = pipelineResult.vulns.length;
     }
 
-    // The list and detail reads are cached per filter combination. Without this
-    // a run would write new companies that stay invisible until the cache aged
-    // out. Purging the tag makes them appear on the next read rather than after
-    // a TTL — invalidate on write, rather than guessing a short lifetime.
-    // "max" gives stale-while-revalidate: the next reader is served instantly
-    // from the old entry while the new one is built behind them, so nobody
-    // waits on a cold query straight after a pipeline run.
+    
     revalidateTag(CACHE_TAGS.companies, "max");
 
     return NextResponse.json({
@@ -174,11 +160,9 @@ export async function POST(request: NextRequest) {
       vulnsUpserted,
       recordsProcessed: pipelineResult.totalRecordsProcessed,
       domainsDropped: pipelineResult.domainsDropped,
-      // Surfaced rather than logged: if the classifier stops answering, that is
-      // a silent quality regression and the only way to notice is to report it.
+    
       resolution: pipelineResult.resolution,
-      // The names themselves, worst first — without these a run just reports a
-      // count and the user has no way to reach what it found.
+    
       companies: sortCompaniesByTier(pipelineResult.companies).map((company) => ({
         company: company.company,
         country: company.country,

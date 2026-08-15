@@ -9,11 +9,7 @@ interface PageProps {
   params: Promise<{ company: string }>;
 }
 
-/**
- * Reading params is dynamic, so it sits behind the Suspense boundary below.
- * The company row and the IBM figure are both cached; only the per-company
- * findings query still reaches Postgres on every view.
- */
+
 async function CompanyDetailContent({ params }: PageProps) {
   const { company: companyParam } = await params;
   const companyName = decodeURIComponent(companyParam);

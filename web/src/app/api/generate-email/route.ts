@@ -4,17 +4,13 @@ import { GEMINI_MODEL, restoreCompanyDomain } from "@/lib/gemini";
 import { formatCurrency } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
-/**
- * Placeholder booking link for the demo. Swap for the real scheduling URL
- * before this is ever sent to an actual prospect.
- */
+
 const BOOKING_LINK = "https://cal.com/security-research-team/30min";
 
 interface VulnDetail {
   cveId: string;
   cvss: number | null;
   epss: number | null;
-  /** Plain-English headline, classified in code from the summary. */
   title?: string;
   summary: string | null;
   inKev: boolean | null;
@@ -60,18 +56,14 @@ export async function POST(request: NextRequest) {
   const attackPercent =
     body.maxEpss !== null ? `${Math.round(body.maxEpss * 100)}%` : null;
 
-  // Computed here and interpolated as text; the model phrases it, never derives it.
+
   const exposureExact =
     body.estimatedExposure !== null ? formatCurrency(body.estimatedExposure) : null;
 
-  // No dollar figure in the subject. It reads as spam, trips filters, and
-  // asserts a cost this scan cannot know for one company. Their own domain plus
-  // a specific, checkable observation is harder to ignore and easier to defend.
+  
   const subjectLine = `Vulnerable software versions visible on ${body.company}`;
 
-  // The "actively exploited / on the KEV list" claim is only true when the
-  // company actually has a KEV hit. Asserting it otherwise would be a straight
-  // fabrication in an email that gets sent, so the sentence branches on the data.
+
   const riskSentence = body.inKev
     ? `Our scan shows ${body.company} running software versions affected by vulnerabilities on the CISA Known Exploited Vulnerabilities list, which attackers are leveraging in the wild right now.`
     : `Our scan shows ${body.company} running software versions affected by known vulnerabilities, the most serious carrying a ${attackPercent ?? "measurable"} probability of being attacked in the next 30 days.`;
@@ -80,9 +72,7 @@ export async function POST(request: NextRequest) {
     ? `These vulnerabilities represent an estimated ${exposureExact} in valuation and damages.`
     : `These vulnerabilities represent material exposure in valuation and damages.`;
 
-  // Locked verbatim rather than described. Left to paraphrase, the model reaches
-  // for "we invite you to..." — a pitch tone. This is deliberately take-it-or-
-  // leave-it, and it carries no per-company data, so there is nothing to adapt.
+ 
   const ctaSentence = `If you are interested in fixing this, feel free to book a call: ${BOOKING_LINK}`;
 
   const prompt = `You are writing a very short outbound sales email for a cybersecurity software company, addressed to the team at ${body.company}${body.country ? ` in ${body.country}` : ""}.

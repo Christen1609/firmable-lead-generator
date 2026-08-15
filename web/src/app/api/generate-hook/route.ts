@@ -4,13 +4,7 @@ import { GEMINI_MODEL, restoreCompanyDomain } from "@/lib/gemini";
 import { formatCurrency } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
-/**
- * The spoken opener for a cold call — what a salesperson says in the first ten
- * seconds, not something they send.
- *
- * Same guardrail as the outreach email: every figure is computed here and
- * passed to the model as text. The model chooses phrasing, never arithmetic.
- */
+
 
 interface HookRequestBody {
   company: string;
@@ -51,15 +45,12 @@ export async function POST(request: NextRequest) {
   const exposure =
     body.estimatedExposure !== null ? formatCurrency(body.estimatedExposure) : null;
 
-  // Only claim active exploitation when the company actually has a KEV hit —
-  // this gets said out loud to a real person, so it has to be true.
+  
   const threatLine = body.inKev
     ? `software versions affected by a flaw that is confirmed to be under active attack in the wild right now`
     : `software versions affected by a flaw with a ${attackPercent ?? "measurable"} chance of being attacked in the next 30 days`;
 
-  // The cost figure is IBM's average breach cost scaled by this company's own
-  // attack probability. It is an estimate, not a record of a past incident, and
-  // the wording must not imply otherwise.
+
   const costLine = exposure
     ? `Breaches like this cost ${formatCurrency(body.ibmBreachCost)} on average, which puts this company's own exposure at roughly ${exposure}.`
     : `Breaches like this cost ${formatCurrency(body.ibmBreachCost)} on average.`;
