@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   TIER_BADGE_STYLES,
-  describeVulnerability,
   formatCurrency,
   formatCvss,
   formatEpss,
@@ -115,7 +114,7 @@ export function CompanyDetail({
             cveId: vuln.cve_id,
             cvss: vuln.cvss,
             epss: vuln.epss,
-            title: describeVulnerability(vuln.summary),
+            title: vuln.title,
             summary: vuln.summary,
             inKev: vuln.in_kev,
             ransomware: vuln.ransomware,
@@ -159,7 +158,7 @@ export function CompanyDetail({
           estimatedExposure,
           ibmBreachCost,
           topFinding: sortedVulns[0]
-            ? describeVulnerability(sortedVulns[0].summary)
+            ? sortedVulns[0].title
             : null,
         }),
       });
@@ -467,7 +466,7 @@ export function CompanyDetail({
                       margin: 0, fontFamily: "var(--font-heading)", fontWeight: 400,
                       fontSize: 22, lineHeight: 1.2,
                     }}>
-                      {describeVulnerability(vuln.summary)}
+                      {vuln.title}
                     </h3>
                     {vuln.in_kev && (
                       <span className="bw-tag" style={{

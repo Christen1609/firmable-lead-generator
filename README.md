@@ -155,8 +155,44 @@ opposite way.
 
 Limits worth stating: n=50 gives roughly a ±12% interval, a homepage title is a
 proxy for ground truth rather than ground truth, and recall was measured against
-the keyword filter only. The plain-English CVE descriptions and the contact
-ranking remain unmeasured.
+the keyword filter only. The contact ranking remains unmeasured.
+
+### Plain-English findings
+
+The detail screen leads with what a flaw lets an attacker do, because a CVE ID
+is useless to a salesperson. The scan data carries no such field — only the raw
+technical summary — so the headline is derived.
+
+Deriving it from regexes alone did not work well enough. Measured across the
+1,628 distinct CVEs in the table, 694 matched no rule and rendered as "A known
+flaw on an internet-facing service"; weighted by how often findings actually
+appear, **45.3% of everything on screen said nothing**. Real CVE text describes a
+mechanism rather than naming a class: CVE-2021-40438 is a textbook SSRF whose
+summary says "forward the request to an origin server chosen by the remote user"
+and never uses the term.
+
+Three layers now resolve the headline, in this order:
+
+| | Share of findings |
+|---|---|
+| Regex match on the summary | 54.5% |
+| Stored label from `Cve_Descriptions` | 43.2% |
+| Named product ("A known flaw in OpenSSL") | 1.0% |
+| Generic fallback | **1.3%** |
+
+The middle layer is model-assisted but cannot fabricate. The model is given 25
+label keys and returns one of them; the sentence is looked up in code. A wrong
+answer is the wrong key from a fixed set, never an invented claim about a
+company. It carries the classifier's guardrails — chunked at 40, two
+known-answer canaries per chunk, labels reconciled against both the CVEs
+submitted and the permitted keys, fails open. One chunk was rejected on a canary
+during the backfill and those CVEs kept their regex behaviour.
+
+Regexes run **first**, so the stored labels are strictly additive: every headline
+that worked before still resolves identically, and an empty or unreachable
+`Cve_Descriptions` degrades to exactly the previous behaviour. Only 1,628
+distinct CVEs exist across 182,511 findings, and a CVE's description never
+changes, so the whole backlog was 18 API calls and re-runs cost nothing.
 
 ### How the tier is decided
 

@@ -49,7 +49,7 @@ export function formatCurrencyShort(value: number): string {
   return "$" + Math.round(value / 1_000) + "k";
 }
 
-/** Spelled-out short form for the outreach subject line: "$4.4 million". */
+
 export function formatCurrencyMillions(value: number): string {
   if (value >= 1_000_000) {
     const millions = (value / 1_000_000).toFixed(1).replace(/\.0$/, "");
@@ -68,13 +68,7 @@ export function formatCvss(cvss: number | null): string {
   return cvss.toFixed(1) + " / 10";
 }
 
-/**
- * Plain-English headline for a finding, derived deterministically from the CVE's
- * own summary text. The brief requires the detail screen to lead with what the
- * flaw lets an attacker do, not with a raw CVE ID — but the scan data carries no
- * title field, only the technical summary. This classifies that summary in code.
- * Nothing here is invented: the summary it was read from is shown directly below.
- */
+
 const VULN_CLASSES: { pattern: RegExp; title: string }[] = [
   { pattern: /remote code execution|code execution|execute arbitrary code|execute untrusted code|arbitrary code|\bRCE\b/i, title: "Attackers can run their own code on this server" },
   { pattern: /command injection|OS command|shell command|arbitrary commands/i, title: "Attackers can run system commands on this server" },
@@ -93,10 +87,105 @@ const VULN_CLASSES: { pattern: RegExp; title: string }[] = [
   { pattern: /information disclosure|sensitive information|obtain sensitive|read arbitrary files|disclose/i, title: "Attackers can read information that should stay private" },
 ];
 
-export function describeVulnerability(summary: string | null): string {
-  if (!summary) return "A known flaw on an internet-facing service";
-  const match = VULN_CLASSES.find((entry) => entry.pattern.test(summary));
-  return match ? match.title : "A known flaw on an internet-facing service";
+/**
+ * Label key -> sentence, for verdicts resolved by classify_cves.py.
+ *
+ * The model is given these keys and returns one of them; the sentence is looked
+ * up here. It never writes prose, so the worst a wrong answer can do is pick the
+ * wrong label from this list rather than invent a claim about a company.
+ *
+ * Keys must stay in step with LABELS in classify_cves.py.
+ */
+export const VULN_TITLES: Record<string, string> = {
+  RCE: "Attackers can run their own code on this server",
+  CMD: "Attackers can run system commands on this server",
+  SQLI: "Attackers can reach the database behind this server",
+  SSRF: "Attackers can make this server call systems behind the firewall",
+  DESER: "Attackers can smuggle hostile data into the application",
+  FILEWRITE: "Attackers can overwrite files on this server",
+  AUTHBYPASS: "Attackers can get in without valid credentials",
+  PRIVESC: "Attackers can raise their own level of access",
+  TRAVERSAL: "Attackers can read files they should never reach",
+  XSS: "Attackers can hijack a signed-in user's session",
+  CSRF: "Attackers can make a signed-in user act without meaning to",
+  MEMORY: "Attackers can crash or take over the service through memory abuse",
+  REDIRECT: "Attackers can bounce your visitors to a site they control",
+  DOS: "Attackers can knock this service offline",
+  INFO: "Attackers can read information that should stay private",
+  SMUGGLING: "Attackers can sneak hidden requests past your defences",
+  SPOOF: "Attackers can impersonate a trusted source",
+  SESSION: "Attackers can take over a signed-in session",
+  XXE: "Attackers can make this server fetch files and internal systems",
+  RACE: "Attackers can exploit a timing flaw to slip past a check",
+  CREDS: "Attackers can log in with credentials shipped in the product",
+  ACCESS: "Attackers can reach data or actions without permission",
+  VALIDATION: "Attackers can feed this server input it fails to check",
+  ENUM: "Attackers can work out which accounts exist",
+  MITM: "Attackers positioned on the network can read or alter traffic",
+};
+
+/**
+ * Products named often enough in this corpus to be worth recognising.
+ *
+ * Longest first: "Apache HTTP Server" must win over "Apache", or every httpd
+ * finding reads as the vaguer of the two.
+ */
+const KNOWN_PRODUCTS: [RegExp, string][] = [
+  [/Apache HTTP Server|\bhttpd\b|mod_(?:proxy|ssl|rewrite|lua|http2)/i, "Apache HTTP Server"],
+  [/\bOpenSSH\b|\bsshd\b/i, "OpenSSH"],
+  [/\bOpenSSL\b/i, "OpenSSL"],
+  [/\bnginx\b/i, "nginx"],
+  [/\bPHP\b/i, "PHP"],
+  [/\bMySQL\b|\bMariaDB\b/i, "MySQL"],
+  [/\bPostgreSQL\b/i, "PostgreSQL"],
+  [/\bExim\b/i, "Exim"],
+  [/\bPostfix\b/i, "Postfix"],
+  [/\bDovecot\b/i, "Dovecot"],
+  [/\bWordPress\b/i, "WordPress"],
+  [/\bTomcat\b/i, "Apache Tomcat"],
+  [/\bIIS\b|Internet Information Services/i, "Microsoft IIS"],
+  [/\bProFTPD\b|\bvsftpd\b|\bFTP server\b/i, "the FTP server"],
+  [/\bSamba\b/i, "Samba"],
+  [/\bBIND\b|\bnamed\b/i, "BIND"],
+];
+
+const GENERIC_DESCRIPTION = "A known flaw on an internet-facing service";
+
+/**
+ * Last resort before the fully generic string. Naming the software at least
+ * tells the reader what to go and patch, which "a known flaw on an
+ * internet-facing service" does not.
+ */
+function describeByProduct(summary: string): string | null {
+  const match = KNOWN_PRODUCTS.find(([pattern]) => pattern.test(summary));
+  return match ? `A known flaw in ${match[1]}` : null;
+}
+
+/**
+ * Resolution order is deliberate.
+ *
+ * The regexes run FIRST so that adding model-assisted labels is strictly
+ * additive: every headline that worked before this table existed still resolves
+ * the same way, and an empty or unreachable Cve_Descriptions degrades to
+ * exactly the previous behaviour rather than to something new.
+ */
+export function describeVulnerability(
+  summary: string | null,
+  label?: string | null
+): string {
+  if (summary) {
+    const match = VULN_CLASSES.find((entry) => entry.pattern.test(summary));
+    if (match) return match.title;
+  }
+
+  if (label && VULN_TITLES[label]) return VULN_TITLES[label];
+
+  if (summary) {
+    const byProduct = describeByProduct(summary);
+    if (byProduct) return byProduct;
+  }
+
+  return GENERIC_DESCRIPTION;
 }
 
 export function sortCompaniesByTier<

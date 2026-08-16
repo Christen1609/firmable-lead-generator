@@ -18,6 +18,12 @@ export interface CompanyVuln {
   in_kev: boolean | null;
   /** KEV's knownRansomwareCampaignUse for this CVE, joined at read time. */
   ransomware: boolean;
+  /**
+   * Plain-English headline, already resolved. Regexes first, then the stored
+   * Cve_Descriptions label, then the product name, then a generic string —
+   * settled once on the server so every consumer shows the same sentence.
+   */
+  title: string;
 }
 
 export interface Setting {

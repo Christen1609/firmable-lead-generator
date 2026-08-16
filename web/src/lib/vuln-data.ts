@@ -1,6 +1,7 @@
 import { cacheTag, cacheLife } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { CACHE_TAGS } from "@/lib/queries";
+import { describeVulnerability } from "@/lib/constants";
 import kevData from "@/data/kev.json";
 import type { CompanyVuln } from "@/lib/types";
 
@@ -79,9 +80,26 @@ export async function getCompanyVulns(
     return [];
   }
 
+  const findings = data ?? [];
+
+  // Model-assigned labels for the CVEs the regexes cannot classify. Fetched for
+  // the ten rows on screen rather than the whole table, and allowed to fail:
+  // describeVulnerability falls back to the regexes on an empty map, which is
+  // the behaviour this table was added to improve on, never depend on.
+  const labels = new Map<string, string>();
+  const { data: labelRows } = await supabase
+    .from("Cve_Descriptions")
+    .select("cve_id,label")
+    .in("cve_id", findings.map((vuln) => vuln.cve_id));
+
+  for (const row of labelRows ?? []) {
+    labels.set(row.cve_id as string, row.label as string);
+  }
+
   const ransomwareCves = loadRansomwareCves();
-  return (data ?? []).map((vuln) => ({
+  return findings.map((vuln) => ({
     ...vuln,
     ransomware: ransomwareCves.has(vuln.cve_id),
+    title: describeVulnerability(vuln.summary, labels.get(vuln.cve_id)),
   }));
 }
