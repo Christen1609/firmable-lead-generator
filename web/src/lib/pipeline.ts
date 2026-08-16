@@ -50,20 +50,6 @@ const INFRASTRUCTURE_TLDS = [".network", ".hosting", ".cloud"];
 const SYSTEM_SUFFIXES = [".arpa", "in-addr", "in-addr.arpa"];
 
 /**
- * Server count above which a domain was previously sent to the classifier.
- *
- * Set to 0 so every surviving domain is classified. A sample of 50 companies
- * found 6 small regional ISPs in the list: their domain names say nothing
- * ("leon.com.pl", "houseti.com.br"), so no keyword can catch them, and with a
- * handful of servers each they never crossed the old threshold to reach the
- * model. The filter that could identify them never saw them.
- *
- * Affordable now because verdicts are chunked and cached: a repeat domain costs
- * nothing, and a fresh run of 100 Shodan records is one or two calls.
- */
-const MAX_DOMAIN_SERVER_COUNT = 0;
-
-/**
  * If the classifier answers for fewer than this share of the domains it was
  * asked about, its whole reply is discarded rather than partially believed.
  */
@@ -503,13 +489,11 @@ export async function runPipeline(
     }
   }
 
-  // Layer 2 continued: drop domains with implausibly high server counts
-  const ambiguousDomains: string[] = [];
-  for (const [domain, domainRecords] of domainToRecords) {
-    if (domainRecords.length > MAX_DOMAIN_SERVER_COUNT) {
-      ambiguousDomains.push(domain);
-    }
-  }
+  // Every surviving domain goes to the classifier. A server-count threshold
+  // used to gate this, but small ISPs have generic names and few servers, so
+  // they slipped past both it and the keyword rules. Affordable because
+  // verdicts are cached and chunked.
+  const ambiguousDomains = [...domainToRecords.keys()];
 
   // Layer 3: AI resolution for ambiguous domains.
   //
