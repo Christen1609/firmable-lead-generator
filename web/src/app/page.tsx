@@ -11,12 +11,7 @@ interface SearchParams {
   after?: string;
 }
 
-/**
- * Reading searchParams is inherently dynamic, so it lives in this inner
- * component behind a Suspense boundary. That lets Next prerender a static shell
- * for the route and stream this in, while the queries it calls are themselves
- * cached per filter combination.
- */
+
 async function ProspectList({
   searchParams,
 }: {
@@ -29,8 +24,7 @@ async function ProspectList({
   const currentPage = Math.max(1, parseInt(params.page ?? "1", 10));
   const cursor = params.after ?? null;
 
-  // Plain values only — a `use cache` scope cannot read searchParams itself, so
-  // the filters are passed in as arguments and become part of the cache key.
+  
   const [{ companies, totalPages, nextCursor }, countries] = await Promise.all([
     getCompaniesPage(tierFilter, countryFilter, searchQuery, currentPage, cursor),
     getCountries(),
