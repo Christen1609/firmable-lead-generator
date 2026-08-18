@@ -1,5 +1,5 @@
 import { cacheTag, cacheLife } from "next/cache";
-import { supabase } from "@/lib/supabase";
+import { supabasePublic } from "@/lib/supabase-public";
 import { CACHE_TAGS } from "@/lib/queries";
 import { describeVulnerability } from "@/lib/constants";
 import kevData from "@/data/kev.json";
@@ -66,7 +66,7 @@ export async function getCompanyVulns(
   cacheTag(CACHE_TAGS.companies);
   cacheLife("minutes");
 
-  const { data, error } = await supabase
+  const { data, error } = await supabasePublic
     .from("Company_Vulns")
     .select("company,cve_id,cvss,epss,summary,in_kev")
     .eq("company", companyName)
@@ -87,7 +87,7 @@ export async function getCompanyVulns(
   // describeVulnerability falls back to the regexes on an empty map, which is
   // the behaviour this table was added to improve on, never depend on.
   const labels = new Map<string, string>();
-  const { data: labelRows } = await supabase
+  const { data: labelRows } = await supabasePublic
     .from("Cve_Descriptions")
     .select("cve_id,label")
     .in("cve_id", findings.map((vuln) => vuln.cve_id));

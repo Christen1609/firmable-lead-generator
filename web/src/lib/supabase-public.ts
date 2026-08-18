@@ -11,9 +11,9 @@ import { createClient } from "@supabase/supabase-js";
  * This previously held a service-role key under a NEXT_PUBLIC_ name. That key
  * bypasses RLS completely, so one client-side import of this module would have
  * inlined full database access into the browser bundle. Writes now live in
- * supabase-admin.ts, which cannot be imported from client code.
+ * supabase-server.ts, which cannot be imported from client code.
  */
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabasePublic = createClient(supabaseUrl, supabaseAnonKey);

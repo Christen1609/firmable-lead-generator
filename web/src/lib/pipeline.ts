@@ -299,8 +299,7 @@ async function resolveAmbiguousDomains(
     return { asked: 0, business, infrastructure, unanswered: [], batchRejected: false, cacheHits: 0 };
   }
 
-  // Verdicts do not change, and the same domains recur across runs, so a cache
-  // hit here removes the domain from the prompt entirely.
+  
   let toAsk = domains;
   let cacheHits = 0;
   if (store) {
@@ -323,9 +322,7 @@ async function resolveAmbiguousDomains(
   const fresh: { domain: string; verdict: Verdict }[] = [];
   let anyChunkRejected = false;
 
-  // Chunked so the prompt stays a bounded size. One unbounded prompt eventually
-  // exceeds the context window and truncates, which is indistinguishable from
-  // the model declining to answer.
+ 
   for (let i = 0; i < toAsk.length; i += CLASSIFIER_CHUNK_SIZE) {
     const chunk = toAsk.slice(i, i + CLASSIFIER_CHUNK_SIZE);
     const chunkIndex = i / CLASSIFIER_CHUNK_SIZE;
@@ -489,21 +486,10 @@ export async function runPipeline(
     }
   }
 
-  // Every surviving domain goes to the classifier. A server-count threshold
-  // used to gate this, but small ISPs have generic names and few servers, so
-  // they slipped past both it and the keyword rules. Affordable because
-  // verdicts are cached and chunked.
+  
   const ambiguousDomains = [...domainToRecords.keys()];
 
-  // Layer 3: AI resolution for ambiguous domains.
-  //
-  // Fails OPEN. Only a domain the model explicitly called "infrastructure" is
-  // dropped; anything it did not answer for is kept. Previously a domain
-  // survived only on an exact `domain=business` match, so a truncated reply,
-  // renumbered lines or a changed case silently deleted it — and these are the
-  // >50-server domains, i.e. the largest prospects. Keeping an occasional
-  // hosting provider is a far cheaper mistake than losing a real company with
-  // no trace that it happened.
+
   let resolutionReport: ResolutionReport | null = null;
   if (ambiguousDomains.length > 0 && geminiApiKey) {
     const resolution = await resolveAmbiguousDomains(
@@ -543,8 +529,7 @@ export async function runPipeline(
     let maxCvss = 0;
     let maxEpss = 0;
     let country: string | null = null;
-    // A set, not an array: only the distinct CVEs are ever needed, both for the
-    // count and for the KEV join.
+    
     const distinctCveIds = new Set<string>();
 
     for (const record of domainRecords) {

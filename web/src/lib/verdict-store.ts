@@ -1,5 +1,5 @@
 import "server-only";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseServer } from "@/lib/supabase-server";
 import type { VerdictStore } from "@/lib/pipeline";
 
 type Verdict = "business" | "infrastructure";
@@ -10,7 +10,7 @@ export const supabaseVerdictStore: VerdictStore = {
     const verdicts = new Map<string, Verdict>();
     if (domains.length === 0) return verdicts;
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseServer
       .from("Domain_Classifications")
       .select("domain,verdict")
       .in("domain", domains);
@@ -26,7 +26,7 @@ export const supabaseVerdictStore: VerdictStore = {
   async put(entries) {
     if (entries.length === 0) return;
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabaseServer
       .from("Domain_Classifications")
       .upsert(
         entries.map((entry) => ({
