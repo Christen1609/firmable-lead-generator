@@ -34,6 +34,13 @@ export interface CompanyVuln {
    * settled once on the server so every consumer shows the same sentence.
    */
   title: string;
+  /**
+   * Salesperson-readable rewrite of `summary`, from Cve_Plain_Summaries. Null
+   * when a CVE has no accepted rewrite yet — the UI shows the raw summary then.
+   */
+  plain_summary: string | null;
+  /** Canned "why the business cares" line for this headline, or null. */
+  business_impact: string | null;
 }
 
 export interface Setting {

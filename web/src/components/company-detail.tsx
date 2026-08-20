@@ -610,11 +610,27 @@ export function CompanyDetail({
                       </span>
                     )}
                   </div>
-                  {vuln.summary && (
+                  {(vuln.plain_summary || vuln.summary) && (
                     <p style={{
                       margin: "12px 0 0", fontSize: 16, lineHeight: 1.62, maxWidth: "66ch", textWrap: "pretty",
                     }}>
-                      {vuln.summary}
+                      {vuln.plain_summary || vuln.summary}
+                    </p>
+                  )}
+                  {vuln.business_impact && (
+                    <p style={{
+                      margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "64ch",
+                      display: "flex", gap: 10,
+                      color: "color-mix(in srgb, var(--color-text) 78%, transparent)",
+                    }}>
+                      <span aria-hidden style={{
+                        width: 8, height: 8, borderRadius: 999, background: "var(--color-accent)",
+                        flex: "none", marginTop: 6,
+                      }} />
+                      <span>
+                        <strong style={{ fontWeight: 600 }}>What this means: </strong>
+                        {vuln.business_impact}
+                      </span>
                     </p>
                   )}
                   <div style={{

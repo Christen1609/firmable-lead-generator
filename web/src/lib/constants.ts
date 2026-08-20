@@ -196,6 +196,70 @@ export function describeVulnerability(
   return GENERIC_DESCRIPTION;
 }
 
+/**
+ * One "why the business cares" line per headline, keyed off the resolved
+ * describeVulnerability() sentence. Canned and deterministic — no model, no
+ * invented facts. A headline with no mapping (the product/generic fallbacks)
+ * simply shows no impact line.
+ */
+const BUSINESS_IMPACT: Record<string, string> = {
+  "Attackers can run their own code on this server":
+    "They could take full control of the machine — installing malware, stealing data, or reaching the rest of the network.",
+  "Attackers can run system commands on this server":
+    "They could run commands as if they were staff, opening the door to data theft.",
+  "Attackers can reach the database behind this server":
+    "Customer and business records could be read, changed, or stolen.",
+  "Attackers can make this server call systems behind the firewall":
+    "Internal systems never meant to face the internet could be reached.",
+  "Attackers can smuggle hostile data into the application":
+    "The application could be tricked into trusting attacker-supplied data.",
+  "Attackers can overwrite files on this server":
+    "Files on the server, including the website itself, could be changed or replaced.",
+  "Attackers can get in without valid credentials":
+    "Someone could get in without a valid login.",
+  "Attackers can raise their own level of access":
+    "A small foothold could be turned into full administrative control.",
+  "Attackers can read files they should never reach":
+    "Private files on the server could be read by outsiders.",
+  "Attackers can hijack a signed-in user's session":
+    "A logged-in user's account could be hijacked in their browser.",
+  "Attackers can make a signed-in user act without meaning to":
+    "A logged-in user could be tricked into actions they never intended.",
+  "Attackers can crash or take over the service through memory abuse":
+    "The service could be crashed or taken over through low-level memory abuse.",
+  "Attackers can bounce your visitors to a site they control":
+    "Your visitors could be quietly sent to a scam or malware site.",
+  "Attackers can knock this service offline":
+    "The service could be taken offline, cutting off customers and revenue.",
+  "Attackers can read information that should stay private":
+    "Information that should stay private could be exposed to outsiders.",
+  "Attackers can sneak hidden requests past your defences":
+    "Hidden malicious requests could slip past your defences.",
+  "Attackers can impersonate a trusted source":
+    "An attacker could pose as a trusted source to fool users or systems.",
+  "Attackers can take over a signed-in session":
+    "An active user's session could be taken over.",
+  "Attackers can make this server fetch files and internal systems":
+    "The server could be tricked into fetching internal files and systems.",
+  "Attackers can exploit a timing flaw to slip past a check":
+    "A timing trick could let an attacker slip past a security check.",
+  "Attackers can log in with credentials shipped in the product":
+    "Built-in default passwords could let an attacker simply log in.",
+  "Attackers can reach data or actions without permission":
+    "Data or actions could be reached without the right permission.",
+  "Attackers can feed this server input it fails to check":
+    "The server could be fed input it fails to check, with unpredictable results.",
+  "Attackers can work out which accounts exist":
+    "An attacker could map which accounts exist, helping further attacks.",
+  "Attackers positioned on the network can read or alter traffic":
+    "Someone on the network could read or tamper with the traffic.",
+};
+
+/** The business-consequence line for a resolved headline, or null if none fits. */
+export function businessImpact(title: string): string | null {
+  return BUSINESS_IMPACT[title] ?? null;
+}
+
 export function sortCompaniesByTier<
   T extends { tier: string | null; max_epss: number | null }
 >(companies: T[]): T[] {

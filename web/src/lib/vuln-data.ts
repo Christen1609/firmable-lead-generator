@@ -1,7 +1,7 @@
 import { cacheTag, cacheLife } from "next/cache";
 import { supabasePublic } from "@/lib/supabase-public";
 import { CACHE_TAGS } from "@/lib/queries";
-import { describeVulnerability } from "@/lib/constants";
+import { describeVulnerability, businessImpact } from "@/lib/constants";
 import kevData from "@/data/kev.json";
 import type { CompanyVuln } from "@/lib/types";
 
@@ -96,10 +96,27 @@ export async function getCompanyVulns(
     labels.set(row.cve_id as string, row.label as string);
   }
 
+  // Plain-English rewrites, same shape as the labels: fetched for the rows on
+  // screen and allowed to fail. A missing rewrite falls back to the raw summary.
+  const plainSummaries = new Map<string, string>();
+  const { data: plainRows } = await supabasePublic
+    .from("Cve_Plain_Summaries")
+    .select("cve_id,plain_summary")
+    .in("cve_id", findings.map((vuln) => vuln.cve_id));
+
+  for (const row of plainRows ?? []) {
+    plainSummaries.set(row.cve_id as string, row.plain_summary as string);
+  }
+
   const ransomwareCves = loadRansomwareCves();
-  return findings.map((vuln) => ({
-    ...vuln,
-    ransomware: ransomwareCves.has(vuln.cve_id),
-    title: describeVulnerability(vuln.summary, labels.get(vuln.cve_id)),
-  }));
+  return findings.map((vuln) => {
+    const title = describeVulnerability(vuln.summary, labels.get(vuln.cve_id));
+    return {
+      ...vuln,
+      ransomware: ransomwareCves.has(vuln.cve_id),
+      title,
+      plain_summary: plainSummaries.get(vuln.cve_id) ?? null,
+      business_impact: businessImpact(title),
+    };
+  });
 }
