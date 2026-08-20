@@ -50,6 +50,14 @@ export function formatCurrencyShort(value: number): string {
 }
 
 
+/** Compact form for large book-wide totals: $76.9B, $8.6B, $420M, $12k. */
+export function formatCompactCurrency(value: number): string {
+  if (value >= 1_000_000_000) return "$" + (value / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  if (value >= 1_000_000) return "$" + (value / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (value >= 1_000) return "$" + Math.round(value / 1_000) + "k";
+  return "$" + Math.round(value);
+}
+
 export function formatCurrencyMillions(value: number): string {
   if (value >= 1_000_000) {
     const millions = (value / 1_000_000).toFixed(1).replace(/\.0$/, "");

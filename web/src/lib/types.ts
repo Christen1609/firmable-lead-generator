@@ -7,6 +7,16 @@ export interface Company {
   in_kev: boolean | null;
   ransomware: boolean | null;
   tier: string | null;
+  /**
+   * Live-threat signal, layered above in_kev. `in_kev` means the flaw type is
+   * exploited in the wild; `confirmed_active` means this company's own
+   * domain/IP was found in a live attack or malware feed. Set by the abuse.ch
+   * backfill and by the live pipeline; null until first checked.
+   */
+  confirmed_active?: boolean | null;
+  active_source?: string | null;
+  active_detail?: string | null;
+  active_checked_at?: string | null;
 }
 
 export interface CompanyVuln {

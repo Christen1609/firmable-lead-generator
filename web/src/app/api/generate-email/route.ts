@@ -29,6 +29,8 @@ interface EmailRequestBody {
   estimatedExposure: number | null;
   ibmBreachCost: number;
   vulns: VulnDetail[];
+  /** True only when a live threat feed confirmed activity on this company. */
+  liveThreat?: boolean | null;
 }
 
 const EMAIL_LIMIT = 10;
@@ -64,7 +66,11 @@ export async function POST(request: NextRequest) {
   const subjectLine = `Vulnerable software versions visible on ${body.company}`;
 
 
-  const riskSentence = body.inKev
+  // liveThreat outranks the KEV line: a per-company observation from live feeds,
+  // still framed as "appears in" rather than a claim they are breached.
+  const riskSentence = body.liveThreat
+    ? `Our scan shows ${body.company} running software versions affected by known-exploited vulnerabilities, and its own domain or servers are currently appearing in live threat-intelligence feeds that track active attacks and malware infrastructure.`
+    : body.inKev
     ? `Our scan shows ${body.company} running software versions affected by vulnerabilities on the CISA Known Exploited Vulnerabilities list, which attackers are leveraging in the wild right now.`
     : `Our scan shows ${body.company} running software versions affected by known vulnerabilities, the most serious carrying a ${attackPercent ?? "measurable"} probability of being attacked in the next 30 days.`;
 

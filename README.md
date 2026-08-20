@@ -206,6 +206,35 @@ exploiting is a worse lead than a CVSS 7.5 under active attack.
 | **Medium** | EPSS ≥ 0.1 |
 | **Low** | CVEs present, below elevated thresholds |
 
+### Confirmed active — a live per-company signal
+
+KEV answers "is this *kind* of flaw exploited in the wild?". It does not answer
+"is *this company* being attacked?". A second, stronger signal does:
+**Confirmed active** is set when a company's own domain or a scanned server IP
+turns up in a live threat-intelligence feed.
+
+Two paths write one stored flag, so a company carries it wherever it came from:
+
+- **Backfill + scheduled refresh.** `mark_confirmed_active.py` downloads
+  abuse.ch's free, bulk feeds — URLhaus, ThreatFox and Feodo Tracker — once and
+  matches every KEV company locally. No per-company calls, so it scales to the
+  whole table for free. The feeds keep a rolling ~6-month window, so re-running
+  refreshes the flag against what is active *now*.
+- **Live pipeline.** A Find More run checks each newly resolved KEV company
+  against ThreatFox by domain and writes the same flag on upsert.
+
+On the detail page a **Live threat check** button runs a fresh, real-time
+ThreatFox lookup on one company — its resolved IP and its domain — for an
+up-to-the-minute read rather than the stored flag. It is on-demand and cached so
+repeated clicks don't re-hit the feed.
+
+Gated to KEV companies deliberately — "confirmed active" builds on "actively
+exploited". Everything is observed and checkable: the email and call hook only
+state the live-attack line when the flag is actually true, the same discipline
+the rest of the app uses. And it is honest about reach — legitimate company
+domains rarely sit in malware feeds, so the flag is rare by design; when it
+shows, it is the strongest thing on the screen.
+
 ### Estimated exposure
 
 ```
@@ -309,7 +338,7 @@ companies are never opened.
 | Database | Supabase (Postgres) |
 | Batch processing | Python + DuckDB |
 | AI | Google Gemini — domain classification and email drafting |
-| Data sources | Shodan, CISA KEV, Hunter |
+| Data sources | Shodan, CISA KEV, Hunter, abuse.ch |
 | Hosting | Vercel |
 
 ---
@@ -334,6 +363,7 @@ npm run dev
 | `GEMINI_API_KEY` | Email drafting and domain classification |
 | `SHODAN_API_KEY` | Live Find More pipeline |
 | `HUNTER_API_KEY` | Contact lookup |
+| `ABUSECH_AUTH_KEY` | abuse.ch feeds — the Confirmed-active backfill, the live-pipeline check, and the on-demand check |
 
 Reads and writes use separate clients. `src/lib/supabase.ts` holds the
 publishable key and is safe to reach the browser; Row Level Security grants it
@@ -349,6 +379,9 @@ Apply the policies with `web/supabase/rls_policies.sql`.
 ```bash
 # Create the per-CVE findings table
 psql < web/supabase/company_vulns.sql   # or paste into the Supabase SQL editor
+
+# Add the confirmed-active columns to Companies
+psql < web/supabase/confirmed_active.sql
 ```
 
 ### Rebuilding the batch data
@@ -360,7 +393,13 @@ The scan file and its derived parquet are excluded from this repo — 5.6 GB and
 python extract_vulns.py        # scan file  -> company_vulns.json.gz
 python load_company_vulns.py   # gz         -> Supabase Company_Vulns
 python measure_vulns.py        # reports what the per-company cap discards
+python mark_confirmed_active.py # flag KEV companies found in abuse.ch feeds
 ```
+
+`mark_confirmed_active.py` needs `confirmed_active.sql` applied and
+`ABUSECH_AUTH_KEY` set. It is safe to re-run and is meant to run on a schedule
+so the flag reflects current activity; `--dry-run` reports matches without
+writing, and `--reset` clears the flag on companies that no longer match.
 
 `load_company_vulns.py` upserts on `(company, cve_id)`, so it is safe to re-run,
 and it filters out companies absent from `Companies` rather than failing a whole

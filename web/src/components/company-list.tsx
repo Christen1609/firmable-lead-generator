@@ -8,6 +8,7 @@ import {
   type TierBadgeStyle,
 } from "@/lib/constants";
 import type { Company } from "@/lib/types";
+import type { CompanyStats } from "@/lib/queries";
 import { DotField } from "@/components/dot-field";
 import { SpecularButton, specularPrimary } from "@/components/specular-button";
 import { Radar, X, Loader2, ChevronDown } from "lucide-react";
@@ -21,6 +22,7 @@ interface CompanyListProps {
   currentTier: string;
   currentCountry: string;
   currentSearch: string;
+  stats: CompanyStats;
 }
 
 /** One company as returned by a live pipeline run, for the results list. */
@@ -67,6 +69,7 @@ export function CompanyList({
   currentTier,
   currentCountry,
   currentSearch,
+  stats,
 }: CompanyListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -143,6 +146,15 @@ export function CompanyList({
   const pageRange = buildPageRange(currentPage, totalPages);
   /** "all" is just the first option, so the dropdown renders from one template. */
   const countryOptions = ["all", ...countries];
+
+  // Average attack probability (EPSS) across the filtered set, 0–100.
+  const avgSignalScore = stats.total > 0 ? Math.round((stats.epssSum / stats.total) * 100) : 0;
+  const statCards = [
+    { label: "Prospects", value: stats.total.toLocaleString(), sub: "In the current view" },
+    { label: "Actively exploited", value: stats.activeExploited.toLocaleString(), sub: "Have a CISA-KEV flaw" },
+    { label: "Confirmed active", value: stats.confirmedActive.toLocaleString(), sub: "In a live threat feed now", accent: true },
+    { label: "Average signal score", value: String(avgSignalScore), sub: "Mean attack probability" },
+  ];
 
   async function handleFindCompanies() {
     if (!findCountry && !findProduct) return;
@@ -244,6 +256,50 @@ export function CompanyList({
             Prospects built from public internet scan data and ranked by live
             exploitation signals. Critical means confirmed active exploitation.
           </p>
+        </div>
+
+        {/* Header stats — filter-aware, so they recount as the filters change. */}
+        <div style={{
+          marginTop: 34, display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14,
+        }}>
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              style={{
+                position: "relative",
+                background: "color-mix(in srgb, var(--color-neutral-100) 92%, transparent)",
+                border: "1px solid var(--color-divider)",
+                borderRadius: "var(--radius-lg)",
+                padding: "18px 20px 16px",
+              }}
+            >
+              {card.accent && (
+                <span style={{
+                  position: "absolute", top: 20, right: 20,
+                  width: 8, height: 8, borderRadius: 999, background: "#b42318",
+                }} />
+              )}
+              <p style={{
+                margin: 0, fontSize: 12, fontWeight: 600,
+                color: "color-mix(in srgb, var(--color-text) 52%, transparent)",
+              }}>
+                {card.label}
+              </p>
+              <p style={{
+                margin: "12px 0 0", fontFamily: "var(--font-heading)", fontWeight: 400,
+                fontSize: 38, lineHeight: 1, letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums",
+              }}>
+                {card.value}
+              </p>
+              <p style={{
+                margin: "10px 0 0", fontSize: 12.5,
+                color: "color-mix(in srgb, var(--color-text) 55%, transparent)",
+              }}>
+                {card.sub}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* Search + tier filters */}
@@ -488,6 +544,15 @@ export function CompanyList({
                           padding: "22px 14px", fontSize: 13,
                           color: "color-mix(in srgb, var(--color-text) 58%, transparent)",
                         }}>
+                          {company.confirmed_active && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center",
+                              background: "#b42318", color: "#fff6f4", borderRadius: 999,
+                              padding: "3px 10px", fontSize: 11, fontWeight: 700, marginRight: 8,
+                            }}>
+                              Confirmed active
+                            </span>
+                          )}
                           {buildSignals(company)}
                         </td>
                         <td style={{

@@ -92,6 +92,43 @@ export async function getCompaniesPage(
 }
 
 
+export interface CompanyStats {
+  total: number;
+  activeExploited: number;
+  confirmedActive: number;
+  /** Sum of max_epss across the filtered set; the app multiplies by the IBM figure. */
+  epssSum: number;
+}
+
+/** Filter-aware header counts + the raw sum behind the exposure figure. */
+export async function getCompanyStats(
+  tier: string,
+  country: string,
+  search: string
+): Promise<CompanyStats> {
+  "use cache";
+  cacheTag(COMPANIES_TAG);
+  cacheLife("minutes");
+
+  const { data } = await supabasePublic.rpc("get_company_stats", {
+    p_tier: tier,
+    p_country: country,
+    p_search: search,
+  });
+  const row = (data?.[0] ?? {}) as {
+    total?: number;
+    kev_count?: number;
+    active_count?: number;
+    epss_sum?: number;
+  };
+  return {
+    total: Number(row.total ?? 0),
+    activeExploited: Number(row.kev_count ?? 0),
+    confirmedActive: Number(row.active_count ?? 0),
+    epssSum: Number(row.epss_sum ?? 0),
+  };
+}
+
 export async function getCountries(): Promise<string[]> {
   "use cache";
   cacheTag(COMPANIES_TAG);

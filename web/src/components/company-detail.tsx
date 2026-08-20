@@ -14,7 +14,8 @@ import { GlassTile } from "@/components/glass-icons";
 import { SpecularButton, specularPrimary, specularSecondary } from "@/components/specular-button";
 import { useTypewriter } from "@/lib/use-typewriter";
 import { RANK_LABELS, type RankedContact } from "@/lib/contacts";
-import { Loader2, X, Phone } from "lucide-react";
+import type { LiveThreatResult } from "@/lib/live-threat";
+import { Loader2, X, Phone, Activity, ShieldAlert } from "lucide-react";
 
 interface CompanyDetailProps {
   company: Company;
@@ -49,9 +50,9 @@ function badgeStyle(tier: string | null, big: boolean): React.CSSProperties {
 function buildVerdict(company: Company): string {
   const pct = Math.round((company.max_epss ?? 0) * 100);
   if (company.ransomware)
-    return "A flaw on their systems is being exploited right now, and it is one ransomware groups are known to use.";
+    return "A flaw of theirs is one ransomware groups are known to use, and its type is confirmed exploited in the wild.";
   if (company.in_kev)
-    return "A flaw on their systems is confirmed under active attack in the wild today.";
+    return "A flaw of theirs is of a type confirmed exploited in the wild — attackers are using it against others today.";
   if (company.tier === "High")
     return `Nothing confirmed exploited yet. The worst flaw here carries a ${pct}% chance of being attacked in the next 30 days.`;
   if (company.tier === "Medium")
@@ -80,6 +81,9 @@ export function CompanyDetail({
   const [hookLoading, setHookLoading] = useState(false);
   const [hookText, setHookText] = useState("");
   const [hookError, setHookError] = useState<string | null>(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveResult, setLiveResult] = useState<LiveThreatResult | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -110,6 +114,7 @@ export function CompanyDetail({
           maxEpss: company.max_epss,
           estimatedExposure,
           ibmBreachCost,
+          liveThreat: liveConfirmed,
           vulns: vulns.map((vuln) => ({
             cveId: vuln.cve_id,
             cvss: vuln.cvss,
@@ -157,6 +162,7 @@ export function CompanyDetail({
           cveCount: company.cve_count,
           estimatedExposure,
           ibmBreachCost,
+          liveThreat: liveConfirmed,
           topFinding: sortedVulns[0]
             ? sortedVulns[0].title
             : null,
@@ -202,6 +208,26 @@ export function CompanyDetail({
     }
   }
 
+  async function handleRunLiveThreat() {
+    setLiveLoading(true);
+    setLiveError(null);
+
+    try {
+      const response = await fetch("/api/live-threat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: company.company }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't check right now");
+      setLiveResult(data as LiveThreatResult);
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setLiveLoading(false);
+    }
+  }
+
   async function handleCopyEmail() {
     if (!emailContent) return;
     await navigator.clipboard.writeText(emailContent);
@@ -218,6 +244,23 @@ export function CompanyDetail({
   const exposureBasis = `Industry average breach cost of ${formatCurrency(ibmBreachCost)} (IBM), scaled by this company’s ${pct}% probability of attack in the next 30 days. An estimate from public figures, not a quote for this company.`;
   const verdict = buildVerdict(company);
   const sortedVulns = [...vulns].sort((a, b) => (b.epss ?? 0) - (a.epss ?? 0));
+
+  // "Confirmed active" is the stored flag OR a positive on-demand check. It is
+  // the only place we say a company is being hit *now*, and it grounds the
+  // live-threat line in the email and hook — passed only when actually true.
+  const liveConfirmed =
+    company.confirmed_active === true || liveResult?.activeAttack === true;
+  const liveChecked = liveResult !== null || Boolean(company.active_checked_at);
+  const liveEvidence: string[] = liveResult
+    ? liveResult.malware.map(
+        (match) =>
+          `abuse.ch ThreatFox: their ${match.matchedOn === "ip" ? "address" : "domain"} is listed${match.malware ? ` for ${match.malware}` : ""}${match.lastSeen ? `, last seen ${match.lastSeen}` : ""}.`
+      )
+    : company.confirmed_active && company.active_detail
+      ? [
+          `Listed in ${company.active_source ?? "a live threat feed"} for ${company.active_detail}${company.active_checked_at ? ` (checked ${new Date(company.active_checked_at).toLocaleDateString()})` : ""}.`,
+        ]
+      : [];
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--color-bg)", position: "relative", isolation: "isolate" }}>
@@ -285,6 +328,54 @@ export function CompanyDetail({
         }}>
           {company.country ?? "Unknown"} · {cveCount} {cveCount === 1 ? "distinct vulnerability" : "distinct vulnerabilities"}
         </p>
+
+        {/* Confirmed-active banner — the strongest signal on the page, so red is
+            allowed to carry meaning here as it does on the tier badge. Shown from
+            the stored flag on load, or refreshed by the Live threat check button. */}
+        {liveConfirmed && (
+          <div style={{
+            marginTop: 26, padding: "20px 24px", borderRadius: "var(--radius-lg)",
+            background: "color-mix(in srgb, #b42318 10%, var(--color-neutral-100))",
+            border: "1px solid color-mix(in srgb, #b42318 35%, transparent)",
+            display: "flex", gap: 16, alignItems: "flex-start",
+          }}>
+            <ShieldAlert style={{ width: 22, height: 22, color: "#b42318", flex: "none", marginTop: 2 }} />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{
+                  background: "#b42318", color: "#fff6f4", borderRadius: 999,
+                  padding: "5px 13px", fontSize: 12, fontWeight: 700,
+                }}>
+                  Confirmed active
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>
+                  {company.company} is showing live attack signals right now
+                </span>
+              </div>
+              {liveEvidence.length > 0 && (
+                <ul style={{
+                  margin: "12px 0 0", paddingLeft: 18, fontSize: 13.5, lineHeight: 1.6,
+                  color: "color-mix(in srgb, var(--color-text) 72%, transparent)",
+                }}>
+                  {liveEvidence.map((line, index) => <li key={index}>{line}</li>)}
+                </ul>
+              )}
+              <p style={{ margin: "10px 0 0", fontSize: 12, color: "color-mix(in srgb, var(--color-text) 50%, transparent)" }}>
+                Observed in public threat-intelligence feeds — not a test of their systems.
+              </p>
+            </div>
+          </div>
+        )}
+        {!liveConfirmed && liveError && (
+          <p style={{ marginTop: 20, fontSize: 13.5, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
+            Couldn&apos;t check live threat feeds right now: {liveError}
+          </p>
+        )}
+        {!liveConfirmed && !liveError && liveChecked && (
+          <p style={{ marginTop: 20, fontSize: 13.5, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
+            No live threat-feed matches for {company.company}{liveResult ? " (checked just now)" : ""}.
+          </p>
+        )}
 
         {/* Exposure card */}
         <div
@@ -388,6 +479,31 @@ export function CompanyDetail({
                   </>
                 )}
               </SpecularButton>
+
+              {/* A live check, not something you send or say — runs a fresh
+                  abuse.ch lookup against this one company. */}
+              <SpecularButton
+                {...specularSecondary}
+                radius={999}
+                onClick={handleRunLiveThreat}
+                disabled={liveLoading}
+                style={{
+                  height: 48, padding: "0 28px", fontSize: 15, fontWeight: 600,
+                  border: "1px solid var(--color-divider)",
+                }}
+              >
+                {liveLoading ? (
+                  <>
+                    <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <Activity style={{ width: 16, height: 16 }} />
+                    Live threat check
+                  </>
+                )}
+              </SpecularButton>
             </div>
           </div>
         </div>
@@ -404,6 +520,14 @@ export function CompanyDetail({
             <p style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 600 }}>
               {company.in_kev ? "Yes, on the CISA list" : "Not confirmed"}
             </p>
+            {(liveConfirmed || liveChecked) && (
+              <p style={{
+                margin: "6px 0 0", fontSize: 13, fontWeight: 600,
+                color: liveConfirmed ? "#b42318" : "color-mix(in srgb, var(--color-text) 50%, transparent)",
+              }}>
+                Live activity: {liveConfirmed ? "Confirmed" : "None found"}
+              </p>
+            )}
           </div>
           <div className="bw-glass" style={{ borderRadius: "var(--radius-md)", padding: "20px 22px" }}>
             <p style={{

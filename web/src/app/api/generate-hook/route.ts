@@ -16,6 +16,8 @@ interface HookRequestBody {
   estimatedExposure: number | null;
   ibmBreachCost: number;
   topFinding: string | null;
+  /** True only when a live threat feed confirmed activity on this company. */
+  liveThreat?: boolean | null;
 }
 
 const HOOK_LIMIT = 10;
@@ -46,7 +48,12 @@ export async function POST(request: NextRequest) {
     body.estimatedExposure !== null ? formatCurrency(body.estimatedExposure) : null;
 
   
-  const threatLine = body.inKev
+  // liveThreat outranks the KEV line: it is a per-company observation, not a
+  // statement about the flaw type. Stated as "showing up in live threat feeds"
+  // rather than "you are breached" — observational and checkable.
+  const threatLine = body.liveThreat
+    ? `software versions affected by a serious flaw, and on top of that their own domain or servers are right now showing up in live threat-intelligence feeds that track active attacks`
+    : body.inKev
     ? `software versions affected by a flaw that is confirmed to be under active attack in the wild right now`
     : `software versions affected by a flaw with a ${attackPercent ?? "measurable"} chance of being attacked in the next 30 days`;
 

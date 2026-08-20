@@ -103,6 +103,15 @@ export interface ProcessedCompany {
   in_kev: boolean;
   ransomware: boolean;
   tier: string;
+  /**
+   * Live-threat flag, filled in after scoring by the find-companies route for
+   * in_kev companies. Defaults false here so every upsert writes the column
+   * consistently rather than leaving it to PostgREST's key-union behaviour.
+   */
+  confirmed_active: boolean;
+  active_source: string | null;
+  active_detail: string | null;
+  active_checked_at: string | null;
 }
 
 export interface ProcessedVuln {
@@ -578,6 +587,10 @@ export async function runPipeline(
       in_kev: inKev,
       ransomware,
       tier,
+      confirmed_active: false,
+      active_source: null,
+      active_detail: null,
+      active_checked_at: null,
     });
   }
 

@@ -1,7 +1,11 @@
 import { Suspense } from "react";
 import { CompanyList } from "@/components/company-list";
 import { sortCompaniesByTier } from "@/lib/constants";
-import { getCompaniesPage, getCountries } from "@/lib/queries";
+import {
+  getCompaniesPage,
+  getCountries,
+  getCompanyStats,
+} from "@/lib/queries";
 
 interface SearchParams {
   tier?: string;
@@ -25,9 +29,10 @@ async function ProspectList({
   const cursor = params.after ?? null;
 
   
-  const [{ companies, totalPages, nextCursor }, countries] = await Promise.all([
+  const [{ companies, totalPages, nextCursor }, countries, stats] = await Promise.all([
     getCompaniesPage(tierFilter, countryFilter, searchQuery, currentPage, cursor),
     getCountries(),
+    getCompanyStats(tierFilter, countryFilter, searchQuery),
   ]);
 
   return (
@@ -40,6 +45,7 @@ async function ProspectList({
       currentTier={tierFilter}
       currentCountry={countryFilter}
       currentSearch={searchQuery}
+      stats={stats}
     />
   );
 }

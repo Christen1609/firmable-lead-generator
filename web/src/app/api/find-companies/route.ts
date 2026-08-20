@@ -9,6 +9,7 @@ import kevData from "@/data/kev.json";
 import { sortCompaniesByTier } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { supabaseVerdictStore } from "@/lib/verdict-store";
+import { confirmedActiveForDomain } from "@/lib/live-threat";
 import { revalidateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/queries";
 
@@ -113,6 +114,24 @@ export async function POST(request: NextRequest) {
         recordsProcessed: pipelineResult.totalRecordsProcessed,
         domainsDropped: pipelineResult.domainsDropped,
       });
+    }
+
+    // Stage 5b: live-threat flag. Gated to in_kev companies — "confirmed active"
+    // builds on "actively exploited" — and domain-only, so no IP is needed. N is
+    // small per run (Shodan is capped at 100 records), so this stays well inside
+    // the abuse.ch limits. A missing key or a feed hiccup leaves the flag false.
+    const abusechKey = process.env.ABUSECH_AUTH_KEY;
+    if (abusechKey) {
+      const kevCompanies = pipelineResult.companies.filter((company) => company.in_kev);
+      await Promise.all(
+        kevCompanies.map(async (company) => {
+          const flag = await confirmedActiveForDomain(company.company, abusechKey);
+          company.confirmed_active = flag.confirmed_active;
+          company.active_source = flag.active_source;
+          company.active_detail = flag.active_detail;
+          company.active_checked_at = flag.active_checked_at;
+        })
+      );
     }
 
     // Stage 6: Upsert into Supabase

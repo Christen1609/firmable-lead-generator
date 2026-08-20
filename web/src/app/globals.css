@@ -285,7 +285,17 @@ textarea.bw-input { min-height: 90px; resize: vertical; border-radius: var(--rad
   border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 .bw-table tbody tr { cursor: pointer; }
-.bw-table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+/* Hover the cells, not the row, so the highlight can carry rounded corners that
+   echo the table's own radius instead of reading as a hard-edged box. */
+.bw-table tbody tr:hover td { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.bw-table tbody tr:hover td:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.bw-table tbody tr:hover td:last-child {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
 
 /* ── Dialog ── */
 .bw-dialog-backdrop {

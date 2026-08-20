@@ -64,3 +64,8 @@ waiting-on-form-answers/
 
 # Personal planning notes
 Planning_Document.pdf
+
+# Accuracy evidence — sample data and probe scripts behind the measured
+# precision and recall figures. Kept locally so it survives a temp cleanup,
+# out of the deliverable like ARCHITECTURE-DECISIONS.md.
+accuracy/
