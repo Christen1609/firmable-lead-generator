@@ -390,10 +390,10 @@ The scan file and its derived parquet are excluded from this repo — 5.6 GB and
 712 MB respectively, both over GitHub's limits. To regenerate:
 
 ```bash
-python extract_vulns.py        # scan file  -> company_vulns.json.gz
-python load_company_vulns.py   # gz         -> Supabase Company_Vulns
-python measure_vulns.py        # reports what the per-company cap discards
-python mark_confirmed_active.py # flag KEV companies found in abuse.ch feeds
+python scripts/extract_vulns.py        # scan file  -> company_vulns.json.gz
+python scripts/load_company_vulns.py   # gz         -> Supabase Company_Vulns
+python scripts/measure_vulns.py        # reports what the per-company cap discards
+python scripts/mark_confirmed_active.py # flag KEV companies found in abuse.ch feeds
 ```
 
 `mark_confirmed_active.py` needs `confirmed_active.sql` applied and

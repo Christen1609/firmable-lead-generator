@@ -8,7 +8,7 @@ import duckdb
 import json
 import os
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 print("Querying parquet...")
 con = duckdb.connect()

@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ENV_PATH = os.path.join("web", ".env.local")
 CHUNK_SIZE = 15

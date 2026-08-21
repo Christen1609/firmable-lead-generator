@@ -33,7 +33,7 @@ import time
 import urllib.error
 import urllib.request
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Lives at the repo root, not under web/: it is this loader's input, not an app
 # asset. Bundling it shipped ~9 MB to Vercel and gave the app a second, diverging

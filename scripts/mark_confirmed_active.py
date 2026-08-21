@@ -46,7 +46,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ENV_PATH = os.path.join("web", ".env.local")
 PARQUET_PATH = "companies_raw.parquet"

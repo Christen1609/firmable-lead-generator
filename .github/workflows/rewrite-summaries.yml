@@ -24,4 +24,4 @@ jobs:
             "${{ secrets.SUPABASE_SERVICE_KEY }}" \
             "${{ secrets.GEMINI_API_KEY }}" > web/.env.local
       - name: Rewrite new CVE summaries
-        run: python rewrite_summaries.py --apply
+        run: python scripts/rewrite_summaries.py --apply
