@@ -1,0 +1,27 @@
+name: Rewrite CVE summaries
+
+# Nightly sweep: rewrite any CVE that still lacks a plain-English summary.
+# Skips ones already done, so a run only touches genuinely new flaws. The app's
+# lazy on-read rewrite covers opened companies; this catches CVEs on companies
+# nobody has opened. Manual runs via the "Run workflow" button.
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Provide credentials
+        run: |
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nSUPABASE_SERVICE_KEY=%s\nGEMINI_API_KEY=%s\n' \
+            "${{ secrets.SUPABASE_URL }}" \
+            "${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            "${{ secrets.GEMINI_API_KEY }}" > web/.env.local
+      - name: Rewrite new CVE summaries
+        run: python rewrite_summaries.py --apply
