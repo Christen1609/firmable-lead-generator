@@ -43,8 +43,8 @@ yarn-error.log*
 # Duplicate of waiting-on-form-answers/, which is tracked
 FrontendDesign.zip
 
-# Duplicate of web/src/data/kev.json, which the app imports
-/kev.json
+# Duplicate of web/src/data/data/kev.json, which the app imports
+/data/kev.json
 
 # Local architecture working notes — reasoning and measurements, not shipped docs
 ARCHITECTURE-DECISIONS.md

@@ -14,7 +14,7 @@ print("Querying parquet...")
 con = duckdb.connect()
 rows = con.execute("""
   SELECT company, vulns
-  FROM 'companies_raw.parquet'
+  FROM 'data/companies_raw.parquet'
   WHERE vulns IS NOT NULL AND vulns != '' AND vulns != '{}'
 """).fetchall()
 con.close()

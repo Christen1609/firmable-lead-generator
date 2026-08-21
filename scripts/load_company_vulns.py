@@ -38,7 +38,7 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Lives at the repo root, not under web/: it is this loader's input, not an app
 # asset. Bundling it shipped ~9 MB to Vercel and gave the app a second, diverging
 # source of findings.
-GZ_PATH = "company_vulns.json.gz"
+GZ_PATH = "data/company_vulns.json.gz"
 ENV_PATH = os.path.join("web", ".env.local")
 TABLE = "Company_Vulns"
 

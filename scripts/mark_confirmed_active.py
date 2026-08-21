@@ -34,7 +34,7 @@ Usage:
 Notes
 -----
 --with-ips additionally matches each company's scanned server IPs, read from
-companies_raw.parquet via DuckDB, against the IP feeds. It is skipped
+data/companies_raw.parquet via DuckDB, against the IP feeds. It is skipped
 automatically if the parquet has no recognisable IP column.
 """
 import argparse
@@ -49,7 +49,7 @@ import urllib.request
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ENV_PATH = os.path.join("web", ".env.local")
-PARQUET_PATH = "companies_raw.parquet"
+PARQUET_PATH = "data/companies_raw.parquet"
 
 # name, kind ('hostfile' | 'iplist'), url, source-key stored in active_source
 FEEDS = [

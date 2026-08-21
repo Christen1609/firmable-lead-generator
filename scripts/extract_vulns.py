@@ -6,7 +6,7 @@ import gzip
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 print("Loading KEV data...")
-with open("kev.json", "r") as f:
+with open("data/kev.json", "r") as f:
     kev_raw = json.load(f)
 kev_map = {v["cveID"]: v.get("knownRansomwareCampaignUse", "Unknown") for v in kev_raw["vulnerabilities"]}
 print(f"  {len(kev_map)} KEV entries loaded")
@@ -15,7 +15,7 @@ print("Querying parquet for rows with vulns...")
 con = duckdb.connect()
 rows = con.execute("""
   SELECT company, vulns
-  FROM 'companies_raw.parquet'
+  FROM 'data/companies_raw.parquet'
   WHERE vulns IS NOT NULL AND vulns != '' AND vulns != '{}'
 """).fetchall()
 con.close()
@@ -63,7 +63,7 @@ for company, cve_map in company_vulns.items():
 print(f"  {len(output)} companies with vuln data")
 
 # Repo root: this is load_company_vulns.py's input, not a Next.js app asset.
-out_path = "company_vulns.json.gz"
+out_path = "data/company_vulns.json.gz"
 json_bytes = json.dumps(output, separators=(",", ":")).encode("utf-8")
 with gzip.open(out_path, "wb") as f:
     f.write(json_bytes)
