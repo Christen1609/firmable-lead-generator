@@ -95,15 +95,7 @@ const VULN_CLASSES: { pattern: RegExp; title: string }[] = [
   { pattern: /information disclosure|sensitive information|obtain sensitive|read arbitrary files|disclose/i, title: "Attackers can read information that should stay private" },
 ];
 
-/**
- * Label key -> sentence, for verdicts resolved by classify_cves.py.
- *
- * The model is given these keys and returns one of them; the sentence is looked
- * up here. It never writes prose, so the worst a wrong answer can do is pick the
- * wrong label from this list rather than invent a claim about a company.
- *
- * Keys must stay in step with LABELS in classify_cves.py.
- */
+
 export const VULN_TITLES: Record<string, string> = {
   RCE: "Attackers can run their own code on this server",
   CMD: "Attackers can run system commands on this server",
@@ -132,12 +124,7 @@ export const VULN_TITLES: Record<string, string> = {
   MITM: "Attackers positioned on the network can read or alter traffic",
 };
 
-/**
- * Products named often enough in this corpus to be worth recognising.
- *
- * Longest first: "Apache HTTP Server" must win over "Apache", or every httpd
- * finding reads as the vaguer of the two.
- */
+
 const KNOWN_PRODUCTS: [RegExp, string][] = [
   [/Apache HTTP Server|\bhttpd\b|mod_(?:proxy|ssl|rewrite|lua|http2)/i, "Apache HTTP Server"],
   [/\bOpenSSH\b|\bsshd\b/i, "OpenSSH"],
@@ -159,24 +146,13 @@ const KNOWN_PRODUCTS: [RegExp, string][] = [
 
 const GENERIC_DESCRIPTION = "A known flaw on an internet-facing service";
 
-/**
- * Last resort before the fully generic string. Naming the software at least
- * tells the reader what to go and patch, which "a known flaw on an
- * internet-facing service" does not.
- */
+
 function describeByProduct(summary: string): string | null {
   const match = KNOWN_PRODUCTS.find(([pattern]) => pattern.test(summary));
   return match ? `A known flaw in ${match[1]}` : null;
 }
 
-/**
- * Resolution order is deliberate.
- *
- * The regexes run FIRST so that adding model-assisted labels is strictly
- * additive: every headline that worked before this table existed still resolves
- * the same way, and an empty or unreachable Cve_Descriptions degrades to
- * exactly the previous behaviour rather than to something new.
- */
+
 export function describeVulnerability(
   summary: string | null,
   label?: string | null
@@ -196,12 +172,7 @@ export function describeVulnerability(
   return GENERIC_DESCRIPTION;
 }
 
-/**
- * One "why the business cares" line per headline, keyed off the resolved
- * describeVulnerability() sentence. Canned and deterministic — no model, no
- * invented facts. A headline with no mapping (the product/generic fallbacks)
- * simply shows no impact line.
- */
+
 const BUSINESS_IMPACT: Record<string, string> = {
   "Attackers can run their own code on this server":
     "They could take full control of the machine — installing malware, stealing data, or reaching the rest of the network.",
@@ -255,7 +226,7 @@ const BUSINESS_IMPACT: Record<string, string> = {
     "Someone on the network could read or tamper with the traffic.",
 };
 
-/** The business-consequence line for a resolved headline, or null if none fits. */
+
 export function businessImpact(title: string): string | null {
   return BUSINESS_IMPACT[title] ?? null;
 }

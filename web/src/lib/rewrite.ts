@@ -82,7 +82,7 @@ export async function rewriteMissingSummaries(
   // The cached findings list may lag the table — re-check before spending a call.
   try {
     const { data } = await supabasePublic
-      .from("Cve_Plain_Summaries")
+      .from("Cve_Enrichment")
       .select("cve_id,plain_summary")
       .in("cve_id", missing.map((v) => v.cve_id));
     for (const row of data ?? []) {
@@ -112,7 +112,7 @@ export async function rewriteMissingSummaries(
       }
       if (fresh.length > 0) {
         await supabaseServer
-          .from("Cve_Plain_Summaries")
+          .from("Cve_Enrichment")
           .upsert(fresh, { onConflict: "cve_id" });
       }
     } catch { /* leave those on the raw summary */ }

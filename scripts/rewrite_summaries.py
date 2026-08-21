@@ -213,7 +213,7 @@ def write_rewrites(mapping):
     """Upsert one chunk's accepted rewrites immediately (idempotent)."""
     rows = [{"cve_id": cid, "plain_summary": text} for cid, text in mapping.items()]
     supabase(
-        "Cve_Plain_Summaries?on_conflict=cve_id",
+        "Cve_Enrichment?on_conflict=cve_id",
         method="POST",
         body=rows,
         extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
@@ -237,7 +237,7 @@ def main():
             distinct[row["cve_id"]] = summary
     print(f"  {len(rows):,} rows -> {len(distinct):,} distinct CVEs with a summary")
 
-    done = {r["cve_id"] for r in fetch_all("Cve_Plain_Summaries", "cve_id")}
+    done = {r["cve_id"] for r in fetch_all("Cve_Enrichment", "cve_id,plain_summary") if r.get("plain_summary")}
     print(f"  {len(done):,} already rewritten")
 
     todo = [(c, s) for c, s in distinct.items() if c not in done]

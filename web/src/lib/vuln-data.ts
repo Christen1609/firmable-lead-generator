@@ -82,30 +82,20 @@ export async function getCompanyVulns(
 
   const findings = data ?? [];
 
-  // Model-assigned labels for the CVEs the regexes cannot classify. Fetched for
-  // the ten rows on screen rather than the whole table, and allowed to fail:
-  // describeVulnerability falls back to the regexes on an empty map, which is
-  // the behaviour this table was added to improve on, never depend on.
+  // Per-CVE enrichment for the ten rows on screen: the model-assigned label (for
+  // CVEs the regexes cannot classify) and the plain-English rewrite. One table,
+  // one round trip, allowed to fail — describeVulnerability falls back to the
+  // regexes and the card falls back to the raw summary on an empty map.
   const labels = new Map<string, string>();
-  const { data: labelRows } = await supabasePublic
-    .from("Cve_Descriptions")
-    .select("cve_id,label")
-    .in("cve_id", findings.map((vuln) => vuln.cve_id));
-
-  for (const row of labelRows ?? []) {
-    labels.set(row.cve_id as string, row.label as string);
-  }
-
-  // Plain-English rewrites, same shape as the labels: fetched for the rows on
-  // screen and allowed to fail. A missing rewrite falls back to the raw summary.
   const plainSummaries = new Map<string, string>();
-  const { data: plainRows } = await supabasePublic
-    .from("Cve_Plain_Summaries")
-    .select("cve_id,plain_summary")
+  const { data: enrichRows } = await supabasePublic
+    .from("Cve_Enrichment")
+    .select("cve_id,label,plain_summary")
     .in("cve_id", findings.map((vuln) => vuln.cve_id));
 
-  for (const row of plainRows ?? []) {
-    plainSummaries.set(row.cve_id as string, row.plain_summary as string);
+  for (const row of enrichRows ?? []) {
+    if (row.label) labels.set(row.cve_id as string, row.label as string);
+    if (row.plain_summary) plainSummaries.set(row.cve_id as string, row.plain_summary as string);
   }
 
   const ransomwareCves = loadRansomwareCves();

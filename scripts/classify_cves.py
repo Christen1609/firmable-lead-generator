@@ -243,11 +243,15 @@ def main():
     print(f"  {len(gaps):,} fall through the regexes ({100 * len(gaps) / max(len(distinct), 1):.1f}%)")
 
     try:
-        cached = {r["cve_id"]: r["label"] for r in fetch_all("Cve_Descriptions", "cve_id,label")}
+        cached = {
+            r["cve_id"]: r["label"]
+            for r in fetch_all("Cve_Enrichment", "cve_id,label")
+            if r.get("label")
+        }
     except urllib.error.HTTPError as error:
         raise SystemExit(
-            f"Cve_Descriptions unreadable (HTTP {error.code}). "
-            "Run web/supabase/cve_descriptions.sql in the Supabase SQL editor first."
+            f"Cve_Enrichment unreadable (HTTP {error.code}). "
+            "Run web/supabase/cve_enrichment.sql in the Supabase SQL editor first."
         )
     print(f"  {len(cached):,} already labelled")
 
@@ -294,7 +298,7 @@ def main():
     rows_out = [{"cve_id": c, "label": l} for c, l in fresh.items()]
     for i in range(0, len(rows_out), 500):
         supabase(
-            "Cve_Descriptions?on_conflict=cve_id",
+            "Cve_Enrichment?on_conflict=cve_id",
             method="POST",
             body=rows_out[i : i + 500],
             extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
