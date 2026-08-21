@@ -17,11 +17,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install deps
+        run: pip install requests
       - name: Provide credentials
         run: |
-          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nSUPABASE_SERVICE_KEY=%s\nGEMINI_API_KEY=%s\n' \
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nSUPABASE_SERVICE_KEY=%s\nGEMINI_API_KEY=%s\nNVD_API_KEY=%s\n' \
             "${{ secrets.SUPABASE_URL }}" \
             "${{ secrets.SUPABASE_SERVICE_KEY }}" \
-            "${{ secrets.GEMINI_API_KEY }}" > web/.env.local
+            "${{ secrets.GEMINI_API_KEY }}" \
+            "${{ secrets.NVD_API_KEY }}" > web/.env.local
+      - name: Fetch CWE for new CVEs
+        run: python scripts/fetch_cwe.py --apply
       - name: Rewrite new CVE summaries
         run: python scripts/rewrite_summaries.py --apply

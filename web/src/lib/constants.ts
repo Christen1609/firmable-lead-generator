@@ -96,35 +96,6 @@ const VULN_CLASSES: { pattern: RegExp; title: string }[] = [
 ];
 
 
-export const VULN_TITLES: Record<string, string> = {
-  RCE: "Attackers can run their own code on this server",
-  CMD: "Attackers can run system commands on this server",
-  SQLI: "Attackers can reach the database behind this server",
-  SSRF: "Attackers can make this server call systems behind the firewall",
-  DESER: "Attackers can smuggle hostile data into the application",
-  FILEWRITE: "Attackers can overwrite files on this server",
-  AUTHBYPASS: "Attackers can get in without valid credentials",
-  PRIVESC: "Attackers can raise their own level of access",
-  TRAVERSAL: "Attackers can read files they should never reach",
-  XSS: "Attackers can hijack a signed-in user's session",
-  CSRF: "Attackers can make a signed-in user act without meaning to",
-  MEMORY: "Attackers can crash or take over the service through memory abuse",
-  REDIRECT: "Attackers can bounce your visitors to a site they control",
-  DOS: "Attackers can knock this service offline",
-  INFO: "Attackers can read information that should stay private",
-  SMUGGLING: "Attackers can sneak hidden requests past your defences",
-  SPOOF: "Attackers can impersonate a trusted source",
-  SESSION: "Attackers can take over a signed-in session",
-  XXE: "Attackers can make this server fetch files and internal systems",
-  RACE: "Attackers can exploit a timing flaw to slip past a check",
-  CREDS: "Attackers can log in with credentials shipped in the product",
-  ACCESS: "Attackers can reach data or actions without permission",
-  VALIDATION: "Attackers can feed this server input it fails to check",
-  ENUM: "Attackers can work out which accounts exist",
-  MITM: "Attackers positioned on the network can read or alter traffic",
-};
-
-
 const KNOWN_PRODUCTS: [RegExp, string][] = [
   [/Apache HTTP Server|\bhttpd\b|mod_(?:proxy|ssl|rewrite|lua|http2)/i, "Apache HTTP Server"],
   [/\bOpenSSH\b|\bsshd\b/i, "OpenSSH"],
@@ -155,14 +126,14 @@ function describeByProduct(summary: string): string | null {
 
 export function describeVulnerability(
   summary: string | null,
-  label?: string | null
+  cweTitle?: string | null
 ): string {
   if (summary) {
     const match = VULN_CLASSES.find((entry) => entry.pattern.test(summary));
     if (match) return match.title;
   }
 
-  if (label && VULN_TITLES[label]) return VULN_TITLES[label];
+  if (cweTitle) return cweTitle;
 
   if (summary) {
     const byProduct = describeByProduct(summary);

@@ -338,7 +338,7 @@ companies are never opened.
 | Database | Supabase (Postgres) |
 | Batch processing | Python + DuckDB |
 | AI | Google Gemini — domain classification and email drafting |
-| Data sources | Shodan, CISA KEV, Hunter, abuse.ch |
+| Data sources | Shodan, CISA KEV, NVD (NIST), Hunter, abuse.ch |
 | Hosting | Vercel |
 
 ---

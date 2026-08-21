@@ -82,25 +82,40 @@ export async function getCompanyVulns(
 
   const findings = data ?? [];
 
-  // Per-CVE enrichment for the ten rows on screen: the model-assigned label (for
-  // CVEs the regexes cannot classify) and the plain-English rewrite. One table,
-  // one round trip, allowed to fail — describeVulnerability falls back to the
-  // regexes and the card falls back to the raw summary on an empty map.
-  const labels = new Map<string, string>();
+  // Per-CVE enrichment for the ten rows on screen: the NVD-assigned CWE (the
+  // weakness class, for CVEs the regexes cannot classify) and the plain-English
+  // rewrite. Allowed to fail — describeVulnerability falls back to the regexes
+  // and the card falls back to the raw summary on an empty map.
+  const cweByCve = new Map<string, string>();
   const plainSummaries = new Map<string, string>();
   const { data: enrichRows } = await supabasePublic
     .from("Cve_Enrichment")
-    .select("cve_id,label,plain_summary")
+    .select("cve_id,cwe_id,plain_summary")
     .in("cve_id", findings.map((vuln) => vuln.cve_id));
 
   for (const row of enrichRows ?? []) {
-    if (row.label) labels.set(row.cve_id as string, row.label as string);
+    if (row.cwe_id) cweByCve.set(row.cve_id as string, row.cwe_id as string);
     if (row.plain_summary) plainSummaries.set(row.cve_id as string, row.plain_summary as string);
+  }
+
+  // CWE id -> headline sentence, for the CWEs on screen. Sourced from NVD, so
+  // this replaces the old guessed label; misses fall through to the regexes.
+  const cweTitles = new Map<string, string>();
+  const cweIds = [...new Set(cweByCve.values())];
+  if (cweIds.length > 0) {
+    const { data: cweRows } = await supabasePublic
+      .from("Cwe_Copy")
+      .select("cwe_id,title")
+      .in("cwe_id", cweIds);
+    for (const row of cweRows ?? []) {
+      cweTitles.set(row.cwe_id as string, row.title as string);
+    }
   }
 
   const ransomwareCves = loadRansomwareCves();
   return findings.map((vuln) => {
-    const title = describeVulnerability(vuln.summary, labels.get(vuln.cve_id));
+    const cweTitle = cweTitles.get(cweByCve.get(vuln.cve_id) ?? "");
+    const title = describeVulnerability(vuln.summary, cweTitle);
     return {
       ...vuln,
       ransomware: ransomwareCves.has(vuln.cve_id),

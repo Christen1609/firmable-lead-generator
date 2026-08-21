@@ -14,6 +14,7 @@ create table if not exists public."Cve_Enrichment" (
   cve_id        text primary key,
   label         text,          -- one of the VULN_TITLES keys, or null (regex handled it)
   plain_summary text,          -- salesperson-readable rewrite, or null (not rewritten yet)
+  cwe_id        text,          -- NVD-assigned CWE weakness class, or null / NONE
   classified_at timestamptz,
   rewritten_at  timestamptz
 );
