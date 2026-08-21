@@ -106,16 +106,25 @@ def supabase(path, method="GET", body=None, extra_headers=None):
         return json.loads(raw) if raw.strip() else None
 
 
-def fetch_all(table, select, page=1000):
-    rows, offset = [], 0
+def fetch_all(table, select, page=1000, key="cve_id"):
+    # Keyset pagination on cve_id: stable AND fast. Offset paging without an
+    # ORDER BY shifts rows between pages (silently missed ~264 CVEs on the first
+    # run); offset paging WITH an ORDER BY re-sorts 182k rows per page and times
+    # out. Walking by `cve_id > last` avoids both. Duplicate rows of a boundary
+    # cve_id are dropped, which is fine — this is only used to collect distinct
+    # CVEs, and that CVE was already captured on the prior page.
+    rows, last = [], None
     while True:
-        page_rows = supabase(f"{table}?select={select}&offset={offset}&limit={page}")
+        query = f"{table}?select={select}&order={key}&limit={page}"
+        if last is not None:
+            query += f"&{key}=gt.{last}"
+        page_rows = supabase(query)
         if not page_rows:
             break
         rows.extend(page_rows)
         if len(page_rows) < page:
             break
-        offset += page
+        last = page_rows[-1][key]
     return rows
 
 

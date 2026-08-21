@@ -1,15 +1,10 @@
-import { promises as dns } from "node:dns";
-
 /**
- * Live per-company threat checks against abuse.ch ThreatFox — a free feed of
- * live malware / botnet IOCs (IPs and domains).
+ * abuse.ch ThreatFox lookup for the stored `confirmed_active` flag.
  *
- * Backs two things: the on-demand "Live threat check" button (a fresh ThreatFox
- * lookup on one company's IP and domain), and the stored `confirmed_active`
- * flag the live pipeline sets at ingest (ThreatFox by domain, gated to in_kev
- * companies). The IP is resolved from the domain at request time, so a match on
- * that IP is labelled as "the address this domain resolves to" rather than
- * asserting anything about a specific server.
+ * The live "Find More" pipeline calls confirmedActiveForDomain() at ingest to
+ * flag a KEV company whose domain appears in ThreatFox's live malware / botnet
+ * feed. The batch backfill (mark_confirmed_active.py) sets the same flag over
+ * the existing companies. Reads only; a feed hiccup never fails a pipeline run.
  */
 
 const THREATFOX_URL = "https://threatfox-api.abuse.ch/api/v1/";
@@ -24,29 +19,6 @@ export interface ThreatFoxMatch {
   reference: string | null;
   /** Whether the company's IP or its domain matched the feed. */
   matchedOn: "ip" | "domain";
-}
-
-export interface LiveThreatResult {
-  company: string;
-  checkedIp: string | null;
-  /** True when the feed reports live attack / malware activity. */
-  activeAttack: boolean;
-  malware: ThreatFoxMatch[];
-  /** Human labels of what fired, for the banner. */
-  sources: string[];
-  checkedAt: string;
-  /** Upstreams that failed; surfaced so a partial check is not read as "clean". */
-  errors: string[];
-}
-
-/** First A record for a domain, or null. Never throws. */
-export async function resolveIp(domain: string): Promise<string | null> {
-  try {
-    const { address } = await dns.lookup(domain);
-    return address ?? null;
-  } catch {
-    return null;
-  }
 }
 
 interface ThreatFoxRaw {
@@ -99,44 +71,6 @@ export async function queryThreatFox(
   }));
 }
 
-/**
- * The on-demand deep check for one company: resolve the domain, then run
- * ThreatFox on both the IP and the domain in parallel. One dead upstream never
- * fails the whole check.
- */
-export async function checkLiveThreat(
-  domain: string,
-  authKey: string
-): Promise<LiveThreatResult> {
-  const checkedIp = await resolveIp(domain);
-  const errors: string[] = [];
-
-  const [ipMatches, domainMatches] = await Promise.all([
-    checkedIp
-      ? queryThreatFox(checkedIp, authKey, "ip").catch((error) => {
-          errors.push(errorText("ThreatFox (IP)", error));
-          return [] as ThreatFoxMatch[];
-        })
-      : Promise.resolve([] as ThreatFoxMatch[]),
-    queryThreatFox(domain, authKey, "domain").catch((error) => {
-      errors.push(errorText("ThreatFox (domain)", error));
-      return [] as ThreatFoxMatch[];
-    }),
-  ]);
-
-  const malware = [...ipMatches, ...domainMatches];
-
-  return {
-    company: domain,
-    checkedIp,
-    activeAttack: malware.length > 0,
-    malware,
-    sources: malware.length > 0 ? ["abuse.ch ThreatFox"] : [],
-    checkedAt: new Date().toISOString(),
-    errors,
-  };
-}
-
 /** The stored flag the live pipeline writes for one KEV company. */
 export interface ConfirmedActiveFlag {
   confirmed_active: boolean;
@@ -146,10 +80,9 @@ export interface ConfirmedActiveFlag {
 }
 
 /**
- * Domain-only ThreatFox check for the ingest path. No IP resolution: the live
- * pipeline already holds the resolved company domain, and a domain match avoids
- * the CDN ambiguity entirely. On any upstream error it returns not-confirmed
- * rather than throwing, so a feed hiccup never fails a pipeline run.
+ * Domain-only ThreatFox check for the ingest path. A domain match avoids the
+ * CDN ambiguity of resolving to an IP. On any upstream error it returns
+ * not-confirmed rather than throwing, so a feed hiccup never fails a pipeline run.
  */
 export async function confirmedActiveForDomain(
   domain: string,
@@ -171,8 +104,4 @@ export async function confirmedActiveForDomain(
   } catch {
     return { confirmed_active: false, active_source: null, active_detail: null, active_checked_at: now };
   }
-}
-
-function errorText(source: string, error: unknown): string {
-  return `${source}: ${error instanceof Error ? error.message : "failed"}`;
 }

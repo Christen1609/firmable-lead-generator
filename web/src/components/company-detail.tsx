@@ -14,8 +14,7 @@ import { GlassTile } from "@/components/glass-icons";
 import { SpecularButton, specularPrimary, specularSecondary } from "@/components/specular-button";
 import { useTypewriter } from "@/lib/use-typewriter";
 import { RANK_LABELS, type RankedContact } from "@/lib/contacts";
-import type { LiveThreatResult } from "@/lib/live-threat";
-import { Loader2, X, Phone, Activity, ShieldAlert } from "lucide-react";
+import { Loader2, X, Phone, ShieldAlert } from "lucide-react";
 
 interface CompanyDetailProps {
   company: Company;
@@ -81,9 +80,6 @@ export function CompanyDetail({
   const [hookLoading, setHookLoading] = useState(false);
   const [hookText, setHookText] = useState("");
   const [hookError, setHookError] = useState<string | null>(null);
-  const [liveLoading, setLiveLoading] = useState(false);
-  const [liveResult, setLiveResult] = useState<LiveThreatResult | null>(null);
-  const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -208,26 +204,6 @@ export function CompanyDetail({
     }
   }
 
-  async function handleRunLiveThreat() {
-    setLiveLoading(true);
-    setLiveError(null);
-
-    try {
-      const response = await fetch("/api/live-threat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.company }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Couldn't check right now");
-      setLiveResult(data as LiveThreatResult);
-    } catch (error) {
-      setLiveError(error instanceof Error ? error.message : "Something went wrong");
-    } finally {
-      setLiveLoading(false);
-    }
-  }
-
   async function handleCopyEmail() {
     if (!emailContent) return;
     await navigator.clipboard.writeText(emailContent);
@@ -245,18 +221,12 @@ export function CompanyDetail({
   const verdict = buildVerdict(company);
   const sortedVulns = [...vulns].sort((a, b) => (b.epss ?? 0) - (a.epss ?? 0));
 
-  // "Confirmed active" is the stored flag OR a positive on-demand check. It is
-  // the only place we say a company is being hit *now*, and it grounds the
-  // live-threat line in the email and hook — passed only when actually true.
-  const liveConfirmed =
-    company.confirmed_active === true || liveResult?.activeAttack === true;
-  const liveChecked = liveResult !== null || Boolean(company.active_checked_at);
-  const liveEvidence: string[] = liveResult
-    ? liveResult.malware.map(
-        (match) =>
-          `abuse.ch ThreatFox: their ${match.matchedOn === "ip" ? "address" : "domain"} is listed${match.malware ? ` for ${match.malware}` : ""}${match.lastSeen ? `, last seen ${match.lastSeen}` : ""}.`
-      )
-    : company.confirmed_active && company.active_detail
+  // "Confirmed active" is the stored flag from the abuse.ch backfill — the only
+  // place we say a company is being hit *now*. It grounds the live-threat line
+  // in the email and hook, passed only when actually true.
+  const liveConfirmed = company.confirmed_active === true;
+  const liveEvidence: string[] =
+    company.confirmed_active && company.active_detail
       ? [
           `Listed in ${company.active_source ?? "a live threat feed"} for ${company.active_detail}${company.active_checked_at ? ` (checked ${new Date(company.active_checked_at).toLocaleDateString()})` : ""}.`,
         ]
@@ -331,7 +301,7 @@ export function CompanyDetail({
 
         {/* Confirmed-active banner — the strongest signal on the page, so red is
             allowed to carry meaning here as it does on the tier badge. Shown from
-            the stored flag on load, or refreshed by the Live threat check button. */}
+            the stored abuse.ch flag on load. */}
         {liveConfirmed && (
           <div style={{
             marginTop: 26, padding: "20px 24px", borderRadius: "var(--radius-lg)",
@@ -365,16 +335,6 @@ export function CompanyDetail({
               </p>
             </div>
           </div>
-        )}
-        {!liveConfirmed && liveError && (
-          <p style={{ marginTop: 20, fontSize: 13.5, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
-            Couldn&apos;t check live threat feeds right now: {liveError}
-          </p>
-        )}
-        {!liveConfirmed && !liveError && liveChecked && (
-          <p style={{ marginTop: 20, fontSize: 13.5, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
-            No live threat-feed matches for {company.company}{liveResult ? " (checked just now)" : ""}.
-          </p>
         )}
 
         {/* Exposure card */}
@@ -479,31 +439,6 @@ export function CompanyDetail({
                   </>
                 )}
               </SpecularButton>
-
-              {/* A live check, not something you send or say — runs a fresh
-                  abuse.ch lookup against this one company. */}
-              <SpecularButton
-                {...specularSecondary}
-                radius={999}
-                onClick={handleRunLiveThreat}
-                disabled={liveLoading}
-                style={{
-                  height: 48, padding: "0 28px", fontSize: 15, fontWeight: 600,
-                  border: "1px solid var(--color-divider)",
-                }}
-              >
-                {liveLoading ? (
-                  <>
-                    <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <Activity style={{ width: 16, height: 16 }} />
-                    Live threat check
-                  </>
-                )}
-              </SpecularButton>
             </div>
           </div>
         </div>
@@ -520,12 +455,9 @@ export function CompanyDetail({
             <p style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 600 }}>
               {company.in_kev ? "Yes, on the CISA list" : "Not confirmed"}
             </p>
-            {(liveConfirmed || liveChecked) && (
-              <p style={{
-                margin: "6px 0 0", fontSize: 13, fontWeight: 600,
-                color: liveConfirmed ? "#b42318" : "color-mix(in srgb, var(--color-text) 50%, transparent)",
-              }}>
-                Live activity: {liveConfirmed ? "Confirmed" : "None found"}
+            {liveConfirmed && (
+              <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: "#b42318" }}>
+                Live activity: Confirmed
               </p>
             )}
           </div>

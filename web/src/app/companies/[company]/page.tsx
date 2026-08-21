@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getCompanyVulns } from "@/lib/vuln-data";
+import { rewriteMissingSummaries } from "@/lib/rewrite";
 import { CompanyDetail } from "@/components/company-detail";
 import { computeEstimatedExposure } from "@/lib/constants";
 import { getCompany, getIbmBreachCost } from "@/lib/queries";
@@ -14,7 +15,7 @@ async function CompanyDetailContent({ params }: PageProps) {
   const { company: companyParam } = await params;
   const companyName = decodeURIComponent(companyParam);
 
-  const [company, vulns, ibmBreachCost] = await Promise.all([
+  const [company, rawVulns, ibmBreachCost] = await Promise.all([
     getCompany(companyName),
     getCompanyVulns(companyName),
     getIbmBreachCost(),
@@ -23,6 +24,10 @@ async function CompanyDetailContent({ params }: PageProps) {
   if (!company) {
     notFound();
   }
+
+  // Fill in a plain-English rewrite for any on-screen flaw that lacks one (a
+  // brand-new CVE a live run just introduced), so it appears in this view.
+  const vulns = await rewriteMissingSummaries(rawVulns);
 
   const estimatedExposure = computeEstimatedExposure(
     company.max_epss,
